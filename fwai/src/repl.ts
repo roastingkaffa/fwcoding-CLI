@@ -1,0 +1,229 @@
+import readline from "node:readline";
+import type { Config } from "./schemas/config.schema.js";
+import type { Project } from "./schemas/project.schema.js";
+import type { ToolDef } from "./schemas/tool.schema.js";
+import type { ProjectContext } from "./utils/project-context.js";
+import type { LLMProvider, Message } from "./providers/provider.js";
+import type { RunMode } from "./utils/run-mode.js";
+import { formatContextBlock } from "./utils/project-context.js";
+import { globalTracer } from "./utils/llm-tracer.js";
+import { routeCommand } from "./commands/index.js";
+import { resolveIntent } from "./skills/intent-resolver.js";
+import { loadSkillMap } from "./skills/skill-loader.js";
+import { runSkill } from "./skills/skill-runner.js";
+import * as log from "./utils/logger.js";
+
+export interface AppContext {
+  config: Config;
+  project: Project;
+  tools: Map<string, ToolDef>;
+  projectCtx: ProjectContext;
+  provider: LLMProvider | null;
+  variables: Record<string, unknown>;
+  runMode: RunMode;
+  cliFlags: { ci?: boolean; yes?: boolean; json?: boolean; quiet?: boolean };
+  /** Shared confirm function — provided by REPL or CLI */
+  confirm: (message: string) => Promise<boolean>;
+}
+
+/** Conversation history for multi-turn LLM interaction */
+const conversationHistory: Message[] = [];
+
+/** Start the interactive REPL */
+export async function startRepl(ctx: AppContext): Promise<void> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: "fwai> ",
+  });
+
+  console.log("");
+  log.heading("Firmware AI CLI v0.1.0");
+  log.info(`Project: ${ctx.project.project.name} | MCU: ${ctx.project.project.target.mcu}`);
+  if (ctx.provider?.isReady()) {
+    log.info(`LLM: ${ctx.config.provider.name} (${ctx.config.provider.model})`);
+  } else {
+    log.warn("LLM not configured. Tool commands still work. Set API key or run /config.");
+  }
+  console.log('  Type /help for commands, or natural language to interact.\n');
+
+  // Queue-based confirm: when a handler needs confirmation, it pulls the next
+  // line from the queue instead of using rl.question (avoids piped stdin issues)
+  let confirmResolver: ((answer: string) => void) | null = null;
+
+  ctx.confirm = (message: string): Promise<boolean> => {
+    process.stdout.write(message);
+    return new Promise((resolve) => {
+      confirmResolver = (answer: string) => {
+        confirmResolver = null;
+        resolve(answer.trim().toLowerCase() === "y");
+      };
+      // If there's already a queued line waiting, use it immediately
+      if (queue.length > 0) {
+        const next = queue.shift()!;
+        confirmResolver(next);
+      }
+    });
+  };
+
+  rl.prompt();
+
+  let processing = false;
+  let exiting = false;
+  let drainDone: (() => void) | null = null;
+  const queue: string[] = [];
+
+  async function processLine(input: string): Promise<void> {
+    try {
+      if (input.startsWith("/")) {
+        const shouldExit = await routeCommand(input, ctx);
+        if (shouldExit) {
+          exiting = true;
+          rl.close();
+          return;
+        }
+      } else {
+        await handleNaturalLanguage(input, ctx);
+      }
+    } catch (err) {
+      log.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    if (!exiting) rl.prompt();
+  }
+
+  async function drainQueue(): Promise<void> {
+    if (processing) return;
+    processing = true;
+    while (queue.length > 0) {
+      // If a handler is waiting for confirmation, feed next line to it
+      if (confirmResolver) {
+        const next = queue.shift()!;
+        confirmResolver(next);
+        // Wait a tick for the confirm promise to resolve before continuing
+        await new Promise((r) => setTimeout(r, 0));
+        continue;
+      }
+      const next = queue.shift()!;
+      await processLine(next);
+    }
+    processing = false;
+    if (drainDone) drainDone();
+  }
+
+  rl.on("line", (line) => {
+    const input = line.trim();
+    if (!input) {
+      if (!confirmResolver) rl.prompt();
+      return;
+    }
+    queue.push(input);
+    drainQueue();
+  });
+
+  rl.on("close", async () => {
+    // Wait for any in-flight command to finish
+    if (processing) {
+      await new Promise<void>((resolve) => { drainDone = resolve; });
+    }
+    console.log("\nGoodbye!");
+    process.exit(0);
+  });
+}
+
+async function handleNaturalLanguage(
+  input: string,
+  ctx: AppContext
+): Promise<void> {
+  // Try intent resolution (Tier 1: exact, Tier 2: keyword, Tier 3: LLM)
+  const skills = loadSkillMap();
+  const intent = await resolveIntent(input, skills, ctx.config.intent, ctx.provider);
+
+  if (intent.skill) {
+    const threshold = ctx.config.intent.confidence_threshold_auto;
+    const askThreshold = ctx.config.intent.confidence_threshold_ask;
+
+    if (intent.confidence >= threshold) {
+      // High confidence → auto-execute skill
+      log.info(`Matched skill: ${intent.skill} (confidence: ${intent.confidence.toFixed(2)}, source: ${intent.source})`);
+      await executeSkillFromRepl(intent.skill, skills, ctx);
+      return;
+    }
+
+    if (intent.confidence >= askThreshold) {
+      // Medium confidence → ask user to confirm
+      log.info(`Possible skill match: ${intent.skill} (confidence: ${intent.confidence.toFixed(2)})`);
+      const confirmed = await ctx.confirm(`Did you mean: run '${intent.skill}' skill? (y/N) `);
+      if (confirmed) {
+        await executeSkillFromRepl(intent.skill, skills, ctx);
+        return;
+      }
+      // User declined — fall through to free chat
+    }
+    // Low confidence — fall through to free chat
+  }
+
+  // Free-form LLM conversation
+  if (!ctx.provider?.isReady()) {
+    log.warn("LLM not configured. Set API key environment variable.");
+    log.info("Tool commands (/build, /flash, /monitor) still work without LLM.");
+    return;
+  }
+
+  // Build system prompt: project context + default agent prompt
+  const contextBlock = formatContextBlock(ctx.projectCtx);
+  const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical.`;
+
+  // Add user message to history
+  conversationHistory.push({ role: "user", content: input });
+
+  const timer = globalTracer.startCall("free_chat");
+  try {
+    const response = await ctx.provider.complete({
+      messages: conversationHistory,
+      system: systemPrompt,
+      max_tokens: ctx.config.provider.max_tokens,
+      temperature: ctx.config.provider.temperature,
+    });
+
+    timer.finish(response.usage.input_tokens, response.usage.output_tokens);
+
+    // Add assistant response to history
+    conversationHistory.push({ role: "assistant", content: response.content });
+
+    // Display response
+    console.log("");
+    console.log(response.content);
+    console.log("");
+  } catch (err) {
+    timer.finish(0, 0, { error: String(err) });
+    log.error(`LLM call failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** Execute a skill from the REPL context */
+async function executeSkillFromRepl(
+  skillName: string,
+  skills: Map<string, { name: string }>,
+  ctx: AppContext
+): Promise<void> {
+  const { getSkill } = await import("./skills/skill-loader.js");
+  const skill = getSkill(skillName);
+  if (!skill) {
+    log.error(`Skill "${skillName}" not found.`);
+    return;
+  }
+
+  await runSkill(skill, {
+    tools: ctx.tools,
+    projectCtx: ctx.projectCtx,
+    variables: ctx.variables,
+    cwd: process.cwd(),
+    bootPatterns: ctx.project.project.boot,
+    runMode: ctx.runMode,
+    cliFlags: ctx.cliFlags,
+    confirm: ctx.confirm,
+    hardwareProject: ctx.project.project,
+    policy: ctx.config.policy,
+    provider: ctx.provider,
+  });
+}

@@ -1,0 +1,42 @@
+{
+  "name": "fwai",
+  "version": "0.1.0",
+  "description": "Firmware AI CLI — AI-assisted firmware development with safety guardrails and evidence traceability",
+  "type": "module",
+  "bin": {
+    "fwai": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "lint": "tsc --noEmit",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+  },
+  "keywords": [
+    "firmware",
+    "embedded",
+    "ai",
+    "cli",
+    "stm32",
+    "esp32",
+    "nrf"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "commander": "^13.1.0",
+    "minimatch": "^10.2.3",
+    "openai": "^4.85.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/minimatch": "^5.1.2",
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.0"
+  }
+}

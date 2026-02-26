@@ -1,0 +1,4 @@
+# Evidence runs and logs are local-only
+runs/
+logs/
+*.log

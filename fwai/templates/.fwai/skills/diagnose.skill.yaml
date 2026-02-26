@@ -1,0 +1,21 @@
+name: diagnose
+description: "Capture UART output and diagnose boot issues with LLM"
+steps:
+  - tool: monitor
+    config:
+      timeout_sec: 20
+    on_fail: continue
+  - action: llm_analyze
+    input: "${run_dir}/uart.log"
+    prompt: |
+      Analyze this UART boot log from the target device.
+      Identify any errors, crashes, or unexpected behavior.
+      Suggest debugging steps.
+  - action: evidence
+    summary: true
+triggers:
+  - diagnose
+  - "boot issue"
+  - "uart error"
+  - crash
+  - "hard fault"

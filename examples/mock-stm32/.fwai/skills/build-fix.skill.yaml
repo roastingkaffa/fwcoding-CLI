@@ -1,0 +1,17 @@
+name: build-fix
+description: "Build, analyze errors with LLM, suggest fixes"
+steps:
+  - tool: build
+    on_fail: continue
+  - action: llm_analyze
+    input: "${run_dir}/build.log"
+    prompt: |
+      Analyze this firmware build log. Identify the root cause of errors.
+      Suggest specific fixes with file paths and line numbers.
+  - action: evidence
+    summary: true
+triggers:
+  - "fix build"
+  - "build error"
+  - "why won't it compile"
+  - "compile error"

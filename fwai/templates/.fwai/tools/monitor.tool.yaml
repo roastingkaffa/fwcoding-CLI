@@ -1,0 +1,14 @@
+name: monitor
+description: "Capture UART output from target device"
+command: "picocom -b ${baud} ${port} --logfile ${logfile}"
+working_dir: "."
+timeout_sec: 30
+variables:
+  port: "${project.serial.port}"
+  baud: "${project.serial.baud}"
+  logfile: "${run_dir}/uart.log"
+stop_conditions:
+  - type: timeout
+    value: 30
+  - type: boot_patterns
+    inherit: true

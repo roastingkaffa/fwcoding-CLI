@@ -1,0 +1,40 @@
+version: "1.0"
+
+# LLM Provider (optional — mock example works without an API key)
+provider:
+  name: anthropic
+  model: claude-sonnet-4-20250514
+  api_key_env: ANTHROPIC_API_KEY
+  max_tokens: 4096
+  temperature: 0.2
+
+# Safety Policy
+policy:
+  protected_paths:
+    - "boot/**"
+    - "partition_table/**"
+    - "*.ld"
+    - "*.icf"
+  change_budget:
+    max_files_changed: 5
+    max_lines_changed: 200
+  flash_guard:
+    require_confirmation: true
+    require_build_success: true
+  require_evidence: true
+
+# Intent Resolution
+intent:
+  confidence_threshold_auto: 0.8
+  confidence_threshold_ask: 0.6
+
+# Run Mode
+mode:
+  default: interactive
+  ci:
+    max_total_duration_sec: 120
+
+# Logging
+logging:
+  level: info
+  color: true

@@ -1,0 +1,20 @@
+name: bringup
+description: "Full board bring-up: build -> flash -> monitor -> evidence"
+agent: bsp
+steps:
+  - tool: build
+    on_fail: abort
+  - tool: flash
+    on_fail: abort
+  - tool: monitor
+    config:
+      timeout_sec: 15
+    on_fail: continue
+  - action: evidence
+    summary: true
+triggers:
+  - bringup
+  - bring-up
+  - "board bring up"
+  - "build and flash"
+  - "full test"

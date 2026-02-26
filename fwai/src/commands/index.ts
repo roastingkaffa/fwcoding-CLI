@@ -1,0 +1,57 @@
+import type { AppContext } from "../repl.js";
+import { handleHelp } from "./help.js";
+import { handleBuild } from "./build.js";
+import { handleFlash } from "./flash.js";
+import { handleMonitor } from "./monitor.js";
+import { handleEvidence } from "./evidence.js";
+import { handleAgents } from "./agents.js";
+import { handleSkills } from "./skills.js";
+import { handleConfig } from "./config.js";
+import { handleDoctor } from "./doctor.js";
+import * as log from "../utils/logger.js";
+
+export interface CommandDef {
+  name: string;
+  description: string;
+  handler: (args: string, ctx: AppContext) => Promise<void>;
+}
+
+export const commands: CommandDef[] = [
+  { name: "help", description: "List all commands", handler: handleHelp },
+  { name: "build", description: "Execute build tool, collect build.log", handler: handleBuild },
+  { name: "flash", description: "Flash firmware to target (with confirmation)", handler: handleFlash },
+  { name: "monitor", description: "Capture UART output to uart.log", handler: handleMonitor },
+  { name: "evidence", description: "List recent runs or show run details", handler: handleEvidence },
+  { name: "agents", description: "List configured agents", handler: handleAgents },
+  { name: "skills", description: "List available skills", handler: handleSkills },
+  { name: "config", description: "Show current configuration", handler: handleConfig },
+  { name: "doctor", description: "Check toolchain & environment health", handler: handleDoctor },
+];
+
+const commandMap = new Map(commands.map((c) => [c.name, c]));
+
+/** Route a /command to its handler */
+export async function routeCommand(
+  input: string,
+  ctx: AppContext
+): Promise<boolean> {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith("/")) return false;
+
+  const parts = trimmed.slice(1).split(/\s+/);
+  const cmdName = parts[0];
+  const args = parts.slice(1).join(" ");
+
+  if (cmdName === "exit" || cmdName === "quit") {
+    return true; // signal exit
+  }
+
+  const cmd = commandMap.get(cmdName);
+  if (!cmd) {
+    log.error(`Unknown command: /${cmdName}. Type /help for available commands.`);
+    return false;
+  }
+
+  await cmd.handler(args, ctx);
+  return false;
+}

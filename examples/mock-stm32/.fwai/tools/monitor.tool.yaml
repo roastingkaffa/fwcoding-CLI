@@ -1,0 +1,10 @@
+name: monitor
+description: "Mock UART monitor — simulates serial boot output"
+command: "echo 'Bootloader starting...' && sleep 0.1 && echo 'HAL Init OK' && sleep 0.1 && echo 'RTOS scheduler started' && sleep 0.1 && echo 'System Ready'"
+working_dir: "."
+timeout_sec: 10
+stop_conditions:
+  - type: timeout
+    value: 5
+  - type: boot_patterns
+    inherit: true
