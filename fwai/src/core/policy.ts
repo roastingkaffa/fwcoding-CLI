@@ -1,0 +1,214 @@
+import { execSync } from "node:child_process";
+import path from "node:path";
+import { minimatch } from "minimatch";
+import type { Policy } from "../schemas/config.schema.js";
+import { loadEvidence, listRecentRuns } from "./evidence.js";
+import { isGitRepo } from "./diff.js";
+import * as log from "../utils/logger.js";
+
+export interface FileChange {
+  file: string;
+  added: number;
+  removed: number;
+}
+
+export interface SplitSuggestion {
+  label: string;
+  files: string[];
+  lines: number;
+}
+
+export interface BudgetCheckResult {
+  withinBudget: boolean;
+  filesChanged: number;
+  linesChanged: number;
+  maxFiles: number;
+  maxLines: number;
+  fileBreakdown: FileChange[];
+  suggestedSplits?: SplitSuggestion[];
+}
+
+/** Check if a path is protected */
+export function isProtectedPath(
+  filePath: string,
+  protectedPaths: string[]
+): boolean {
+  return protectedPaths.some((pattern) => minimatch(filePath, pattern));
+}
+
+/** Check all protected paths against a list of changed files */
+export function checkProtectedPaths(
+  changedFiles: string[],
+  protectedPaths: string[]
+): string[] {
+  return changedFiles.filter((f) => isProtectedPath(f, protectedPaths));
+}
+
+/** Check git diff against change budget */
+export function checkChangeBudget(policy: Policy, cwd?: string): BudgetCheckResult {
+  const maxFiles = policy.change_budget.max_files_changed;
+  const maxLines = policy.change_budget.max_lines_changed;
+
+  if (!isGitRepo(cwd)) {
+    return {
+      withinBudget: true,
+      filesChanged: 0,
+      linesChanged: 0,
+      maxFiles,
+      maxLines,
+      fileBreakdown: [],
+    };
+  }
+
+  const fileBreakdown = parseGitDiffNumstat(cwd);
+  const filesChanged = fileBreakdown.length;
+  const linesChanged = fileBreakdown.reduce((sum, f) => sum + f.added + f.removed, 0);
+
+  const withinBudget = filesChanged <= maxFiles && linesChanged <= maxLines;
+
+  const result: BudgetCheckResult = {
+    withinBudget,
+    filesChanged,
+    linesChanged,
+    maxFiles,
+    maxLines,
+    fileBreakdown,
+  };
+
+  if (!withinBudget) {
+    result.suggestedSplits = generateSplitSuggestions(fileBreakdown, maxLines);
+  }
+
+  return result;
+}
+
+/** Display budget check result to console */
+export function displayBudgetResult(result: BudgetCheckResult): void {
+  if (result.withinBudget) {
+    log.success(
+      `Change budget: ${result.filesChanged}/${result.maxFiles} files, ` +
+      `${result.linesChanged}/${result.maxLines} lines`
+    );
+    return;
+  }
+
+  log.error("Change budget EXCEEDED:");
+  log.output(
+    `  Files:  ${result.filesChanged} / ${result.maxFiles} ${result.filesChanged > result.maxFiles ? "(exceeded)" : ""}`
+  );
+  log.output(
+    `  Lines:  ${result.linesChanged} / ${result.maxLines} ${result.linesChanged > result.maxLines ? "(exceeded)" : ""}`
+  );
+
+  // File-by-file breakdown
+  log.output("");
+  log.heading("  File breakdown:");
+  for (const f of result.fileBreakdown) {
+    const total = f.added + f.removed;
+    log.output(`    +${String(f.added).padEnd(4)} -${String(f.removed).padEnd(4)} (${total})  ${f.file}`);
+  }
+
+  // Split suggestions
+  if (result.suggestedSplits && result.suggestedSplits.length > 1) {
+    log.output("");
+    log.heading("  Suggested split:");
+    for (let i = 0; i < result.suggestedSplits.length; i++) {
+      const split = result.suggestedSplits[i];
+      log.output(`    Patch ${i + 1}: ${split.label} (~${split.lines} lines)`);
+      for (const f of split.files) {
+        log.output(`      - ${f}`);
+      }
+    }
+  }
+}
+
+/** Check flash guard: requires last build to be successful */
+export function checkFlashGuard(cwd?: string): boolean {
+  const runs = listRecentRuns(10, cwd);
+  for (const runId of runs) {
+    const evidence = loadEvidence(runId, cwd);
+    if (!evidence) continue;
+    const buildResult = evidence.tools.find((t) => t.tool === "build");
+    if (buildResult) {
+      return buildResult.status === "success";
+    }
+  }
+  log.warn("No previous build found. Flash guard check failed.");
+  return false;
+}
+
+/** Parse git diff --numstat for per-file change counts */
+function parseGitDiffNumstat(cwd?: string): FileChange[] {
+  try {
+    const output = execSync("git diff HEAD --numstat", {
+      cwd: cwd ?? process.cwd(),
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    const files: FileChange[] = [];
+    for (const line of output.trim().split("\n")) {
+      if (!line) continue;
+      const match = line.match(/^(\d+|-)\s+(\d+|-)\s+(.+)$/);
+      if (match) {
+        files.push({
+          file: match[3],
+          added: match[1] === "-" ? 0 : parseInt(match[1], 10),
+          removed: match[2] === "-" ? 0 : parseInt(match[2], 10),
+        });
+      }
+    }
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+/** Group files by top-level directory and generate split suggestions */
+function generateSplitSuggestions(
+  files: FileChange[],
+  maxLinesPerPatch: number
+): SplitSuggestion[] {
+  // Group by top-level directory
+  const groups = new Map<string, FileChange[]>();
+
+  for (const file of files) {
+    const parts = file.file.split(path.sep);
+    const group = parts.length > 1 ? parts[0] : "(root)";
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group)!.push(file);
+  }
+
+  // Build suggestions from groups
+  const suggestions: SplitSuggestion[] = [];
+  for (const [dir, groupFiles] of groups) {
+    const totalLines = groupFiles.reduce((sum, f) => sum + f.added + f.removed, 0);
+
+    // If the group itself exceeds budget, split further by subdirectory
+    if (totalLines > maxLinesPerPatch && groupFiles.length > 1) {
+      const subGroups = new Map<string, FileChange[]>();
+      for (const f of groupFiles) {
+        const parts = f.file.split(path.sep);
+        const subKey = parts.length > 2 ? `${parts[0]}/${parts[1]}` : dir;
+        if (!subGroups.has(subKey)) subGroups.set(subKey, []);
+        subGroups.get(subKey)!.push(f);
+      }
+      for (const [subDir, subFiles] of subGroups) {
+        const lines = subFiles.reduce((sum, f) => sum + f.added + f.removed, 0);
+        suggestions.push({
+          label: subDir,
+          files: subFiles.map((f) => f.file),
+          lines,
+        });
+      }
+    } else {
+      suggestions.push({
+        label: dir,
+        files: groupFiles.map((f) => f.file),
+        lines: totalLines,
+      });
+    }
+  }
+
+  return suggestions.sort((a, b) => b.lines - a.lines);
+}

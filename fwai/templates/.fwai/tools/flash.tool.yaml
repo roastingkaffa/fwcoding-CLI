@@ -1,0 +1,16 @@
+name: flash
+description: "Flash firmware to target device"
+command: "openocd -f board/stm32f4discovery.cfg -c 'program build/firmware.bin verify reset exit'"
+working_dir: "."
+timeout_sec: 60
+requires:
+  - build
+guard:
+  require_confirmation: true
+  message: "About to flash target device. Continue?"
+success_patterns:
+  - "verified"
+  - "Programming Finished"
+failure_patterns:
+  - "Error"
+  - "Target not found"

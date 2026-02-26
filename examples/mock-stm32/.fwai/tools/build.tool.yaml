@@ -1,0 +1,11 @@
+name: build
+description: "Mock build — simulates cmake firmware compilation"
+command: "echo 'Compiling firmware...' && sleep 0.1 && echo 'Linking...' && echo '[100%] Build complete'"
+working_dir: "."
+timeout_sec: 10
+success_patterns:
+  - "Build complete"
+  - "\\[100%\\]"
+failure_patterns:
+  - "error:"
+  - "FAILED"

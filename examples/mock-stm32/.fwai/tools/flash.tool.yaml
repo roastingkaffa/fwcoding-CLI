@@ -1,0 +1,14 @@
+name: flash
+description: "Mock flash — simulates OpenOCD programming"
+command: "echo 'Connecting to target...' && sleep 0.1 && echo 'Erasing...' && echo 'Programming Finished' && echo 'verified'"
+working_dir: "."
+timeout_sec: 10
+guard:
+  require_confirmation: true
+  message: "Flash target device? (y/N) "
+success_patterns:
+  - "verified"
+  - "Programming Finished"
+failure_patterns:
+  - "Error"
+  - "Target not found"

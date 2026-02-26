@@ -1,0 +1,40 @@
+project:
+  name: my-firmware-project
+  description: "Edit this file to match your project"
+
+  # Target hardware
+  target:
+    mcu: STM32F407VG
+    arch: arm-cortex-m4
+    board: custom-board-v2
+    flash_size: 512KB
+    ram_size: 128KB
+
+  # Build system
+  build:
+    system: cmake
+    build_dir: build
+    source_dir: src
+    entry_point: main.c
+
+  # Serial / UART
+  serial:
+    port: /dev/ttyUSB0
+    baud: 115200
+
+  # Boot detection patterns
+  boot:
+    success_patterns:
+      - "System Ready"
+      - "Boot complete"
+    failure_patterns:
+      - "PANIC"
+      - "Hard Fault"
+      - "WDT Reset"
+      - "Stack overflow"
+
+  # Toolchain (auto-detected by fwai doctor)
+  toolchain:
+    compiler: arm-none-eabi-gcc
+    debugger: openocd
+    flasher: openocd

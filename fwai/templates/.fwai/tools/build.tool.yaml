@@ -1,0 +1,18 @@
+name: build
+description: "Compile firmware project"
+command: "cmake --build build --parallel"
+working_dir: "."
+timeout_sec: 120
+success_patterns:
+  - "Build complete"
+  - "\\[100%\\]"
+failure_patterns:
+  - "error:"
+  - "FAILED"
+artifacts:
+  - path: "build/*.bin"
+    label: firmware_binary
+  - path: "build/*.elf"
+    label: firmware_elf
+  - path: "build/*.map"
+    label: memory_map
