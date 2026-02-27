@@ -1449,8 +1449,8 @@ CI Timeout 支援：
 ### Phase 2 — MVP+1
 
 - [x] Memory/ROM analysis (parse .map / arm-none-eabi-size)
-- [ ] LLM-powered smart patch splitting (upgrade from directory-based grouping)
-- [ ] Ink TUI upgrade (replace readline)
+- [x] LLM-powered smart patch splitting (upgrade from directory-based grouping)
+- [x] TUI upgrade (ora spinners + readline tab-completion; Ink deferred as high-risk)
 - [x] Multi-provider hot-switch (`/provider openai`)
 - [x] Streaming LLM output in REPL
 - [x] Tool-calling protocol (LLM can invoke tools)

@@ -51,6 +51,14 @@ fwai
 
 Type natural language to interact with the AI assistant directly.
 
+### Tab Completion
+
+Press `Tab` after typing `/` to see and auto-complete available commands. For example, typing `/bu` then `Tab` completes to `/build`.
+
+### Spinner Feedback
+
+During LLM calls and tool execution, a spinner is displayed to indicate progress. The spinner automatically pauses when log output is written and clears before streaming text begins. Spinners are disabled automatically in non-TTY environments (CI).
+
 ## Agentic Mode
 
 ### What is Agentic Mode?
