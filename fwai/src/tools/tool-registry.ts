@@ -13,6 +13,7 @@ import { searchGrepTool } from "./search-grep.js";
 import { searchGlobTool } from "./search-glob.js";
 import { bashTool } from "./bash.js";
 import { wrapAllFirmwareTools } from "./firmware-tools.js";
+import { memoryAnalysisTool } from "./memory-analysis.js";
 
 /** All built-in agentic tools */
 const BUILTIN_TOOLS: AgenticTool[] = [
@@ -22,6 +23,7 @@ const BUILTIN_TOOLS: AgenticTool[] = [
   searchGrepTool,
   searchGlobTool,
   bashTool,
+  memoryAnalysisTool,
 ];
 
 export class ToolRegistry {

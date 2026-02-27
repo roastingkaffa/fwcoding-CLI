@@ -1433,36 +1433,48 @@ CI Timeout 支援：
 
 ## 17. Roadmap
 
-### Phase 1 — MVP (Current)
+### Phase 1 — MVP ✅
 
 - [x] Spec finalized (v1.1 with community feedback)
-- [ ] Project scaffold (Prompt 0)
-- [ ] Workspace init (Prompt 1)
-- [ ] REPL + routing (Prompt 2)
-- [ ] Tool runner + boot pattern matching + hardware state (Prompt 3)
-- [ ] Evidence system + hardware/boot_status fields (Prompt 4)
-- [ ] Policy engine + smart budget split + doctor w/ compiler cache (Prompt 5)
-- [ ] LLM provider + auto project context injection + LLM tracing (Prompt 6)
-- [ ] Skill runner + NL + confidence mechanism (Prompt 7)
-- [ ] CI/interactive run mode + CI timeout support (across Prompts 3-7)
+- [x] Project scaffold (Prompt 0)
+- [x] Workspace init (Prompt 1)
+- [x] REPL + routing (Prompt 2)
+- [x] Tool runner + boot pattern matching + hardware state (Prompt 3)
+- [x] Evidence system + hardware/boot_status fields (Prompt 4)
+- [x] Policy engine + smart budget split + doctor w/ compiler cache (Prompt 5)
+- [x] LLM provider + auto project context injection + LLM tracing (Prompt 6)
+- [x] Skill runner + NL + confidence mechanism (Prompt 7)
+- [x] CI/interactive run mode + CI timeout support (across Prompts 3-7)
 
 ### Phase 2 — MVP+1
 
-- [ ] Memory/ROM analysis (parse .map / arm-none-eabi-size)
+- [x] Memory/ROM analysis (parse .map / arm-none-eabi-size)
 - [ ] LLM-powered smart patch splitting (upgrade from directory-based grouping)
 - [ ] Ink TUI upgrade (replace readline)
-- [ ] Multi-provider hot-switch (`/provider openai`)
-- [ ] Streaming LLM output in REPL
-- [ ] Tool-calling protocol (LLM can invoke tools)
-- [ ] Board Farm integration (leverage hardware state in evidence)
+- [x] Multi-provider hot-switch (`/provider openai`)
+- [x] Streaming LLM output in REPL
+- [x] Tool-calling protocol (LLM can invoke tools)
+- [x] Board Farm integration (leverage hardware state in evidence)
 
 ### Phase 3 — Internal Release
 
-- [ ] Knowledge Base (`kb/`) with local RAG
-- [ ] MCP server integration
-- [ ] Multi-agent concurrency
-- [ ] CI/CD integration guide (GitHub Actions / GitLab CI)
+- [x] Knowledge Base (`kb/`) with keyword search
+- [x] MCP server integration (stub — interface defined)
+- [x] Multi-agent concurrency (orchestrator with bounded semaphore)
+- [x] CI/CD integration guide (GitHub Actions / GitLab CI)
 - [ ] VS Code extension
+
+### Agentic Architecture (added in Phases 1–6 Upgrade)
+
+- [x] Agentic tool interface (`AgenticTool`) and tool registry
+- [x] Built-in tools: read_file, write_file, edit_file, bash, grep, glob, memory_analysis
+- [x] Agentic loop engine with tool-calling protocol
+- [x] Agent runtime with scoped tools/paths/system prompts
+- [x] Agent permissions and protected path enforcement
+- [x] Agentic skill steps (fixed + agentic mixed workflows)
+- [x] Streaming support with text delta callbacks
+- [x] Multi-agent orchestrator with bounded concurrency
+- [x] Jest test infrastructure with 70+ unit tests
 
 ### Phase 4 — Commercial
 

@@ -117,4 +117,5 @@ export type HardwareState = z.infer<typeof HardwareStateSchema>;
 export type BootStatus = z.infer<typeof BootStatusSchema>;
 export type Changes = z.infer<typeof ChangesSchema>;
 export type AgenticToolCall = z.infer<typeof AgenticToolCallSchema>;
+export type MemoryAnalysis = z.infer<typeof MemoryAnalysisSchema>;
 export type AgenticSession = z.infer<typeof AgenticSessionSchema>;

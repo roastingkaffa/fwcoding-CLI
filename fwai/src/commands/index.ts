@@ -9,6 +9,9 @@ import { handleSkills } from "./skills.js";
 import { handleConfig } from "./config.js";
 import { handleDoctor } from "./doctor.js";
 import { handleAgentChat } from "./agent-chat.js";
+import { handleMemory } from "./memory.js";
+import { handleProvider } from "./provider.js";
+import { handleFarm } from "./farm.js";
 import * as log from "../utils/logger.js";
 
 export interface CommandDef {
@@ -28,6 +31,9 @@ export const commands: CommandDef[] = [
   { name: "config", description: "Show current configuration", handler: handleConfig },
   { name: "doctor", description: "Check toolchain & environment health", handler: handleDoctor },
   { name: "agent", description: "Start scoped agent chat (e.g., /agent bsp)", handler: handleAgentChat },
+  { name: "memory", description: "Analyze firmware memory/ROM usage", handler: handleMemory },
+  { name: "provider", description: "Show or switch LLM provider", handler: handleProvider },
+  { name: "farm", description: "Board farm management (list/allocate/release)", handler: handleFarm },
 ];
 
 const commandMap = new Map(commands.map((c) => [c.name, c]));
