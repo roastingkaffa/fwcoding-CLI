@@ -1,0 +1,189 @@
+{
+  "name": "vscode-fwai",
+  "displayName": "FWAI — Firmware AI Assistant",
+  "description": "AI-assisted firmware development with safety guardrails and evidence traceability",
+  "version": "0.1.0",
+  "publisher": "fwai",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bundle": "node esbuild.config.mjs",
+    "lint": "tsc --noEmit",
+    "test": "node --import tsx --test src/test/suite/*.test.ts"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:.fwai/config.yaml"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "fwai.init",
+        "title": "FWAI: Initialize Workspace"
+      },
+      {
+        "command": "fwai.build",
+        "title": "FWAI: Build"
+      },
+      {
+        "command": "fwai.flash",
+        "title": "FWAI: Flash Device"
+      },
+      {
+        "command": "fwai.monitor",
+        "title": "FWAI: Monitor Serial"
+      },
+      {
+        "command": "fwai.runSkill",
+        "title": "FWAI: Run Skill"
+      },
+      {
+        "command": "fwai.agentChat",
+        "title": "FWAI: Agent Chat"
+      },
+      {
+        "command": "fwai.doctor",
+        "title": "FWAI: Doctor"
+      },
+      {
+        "command": "fwai.showEvidence",
+        "title": "FWAI: Show Evidence"
+      },
+      {
+        "command": "fwai.analyzeMemory",
+        "title": "FWAI: Analyze Memory"
+      },
+      {
+        "command": "fwai.switchProvider",
+        "title": "FWAI: Switch LLM Provider"
+      },
+      {
+        "command": "fwai.openRepl",
+        "title": "FWAI: Open REPL"
+      },
+      {
+        "command": "fwai.refreshViews",
+        "title": "FWAI: Refresh Views"
+      },
+      {
+        "command": "fwai.showConfig",
+        "title": "FWAI: Show Config"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "fwai-explorer",
+          "title": "FWAI",
+          "icon": "resources/fwai-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "fwai-explorer": [
+        {
+          "id": "fwai.evidenceView",
+          "name": "Evidence"
+        },
+        {
+          "id": "fwai.skillsView",
+          "name": "Skills"
+        },
+        {
+          "id": "fwai.agentsView",
+          "name": "Agents"
+        },
+        {
+          "id": "fwai.toolsView",
+          "name": "Tools"
+        }
+      ],
+      "panel": [
+        {
+          "id": "fwai.chatPanel",
+          "name": "FWAI Chat",
+          "type": "webview"
+        }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "fwai",
+        "required": [
+          "operation"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "The fwai operation to run"
+          },
+          "skill": {
+            "type": "string",
+            "description": "The skill name (for run operations)"
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "fwai-gcc",
+        "owner": "fwai",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.+):(\\d+):(\\d+):\\s+(warning|error):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    ],
+    "configuration": {
+      "title": "FWAI",
+      "properties": {
+        "fwai.cliPath": {
+          "type": "string",
+          "default": "fwai",
+          "description": "Path to the fwai CLI executable"
+        },
+        "fwai.autoRefreshEvidence": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-refresh evidence view when .fwai/runs/ changes"
+        },
+        "fwai.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show FWAI status bar items"
+        },
+        "fwai.chat.streamingEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable streaming responses in chat panel"
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "fwai": "file:../fwai"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.2",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-electron": "^2.3.0",
+    "esbuild": "^0.20.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.0"
+  }
+}

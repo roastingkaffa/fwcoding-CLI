@@ -233,3 +233,25 @@ fwai run bringup --ci --yes --json
 # 3 = flash guard / confirmation required
 # 4 = change budget exceeded
 ```
+
+## VS Code Extension
+
+The `vscode-fwai` extension brings fwai features into VS Code.
+
+### Install
+
+```bash
+cd vscode-fwai && npm install && npm run build
+# Then press F5 to launch Extension Development Host
+```
+
+### Features
+
+- **Sidebar views**: Evidence runs, Skills, Agents, and Tools in the activity bar
+- **Agent Chat panel**: Interactive LLM chat with streaming and tool-call indicators
+- **Command Palette**: All 13 commands available via `Ctrl+Shift+P` → "FWAI:"
+- **Status bar**: Project name, MCU, and active LLM provider
+- **Task integration**: Skills auto-detected as VS Code tasks with GCC problem matcher
+- **Diagnostics**: Build errors appear in the Problems panel after `FWAI: Build`
+- **Evidence detail**: Click a run to see full tool results, boot status, and changes
+- **Memory analysis**: Bar-chart visualization of Flash/RAM usage
