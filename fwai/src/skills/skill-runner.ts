@@ -12,6 +12,10 @@ import { createRunSession, writeEvidence, buildHardwareState, type RunSession } 
 import { checkChangeBudget, displayBudgetResult } from "../core/policy.js";
 import { formatContextBlock } from "../utils/project-context.js";
 import { globalTracer } from "../utils/llm-tracer.js";
+import { runAgenticLoop } from "../agents/agentic-loop.js";
+import { getAgent } from "../agents/agent-loader.js";
+import { createAgentLoopConfig } from "../agents/agent-runtime.js";
+import { ToolRegistry } from "../tools/tool-registry.js";
 import * as log from "../utils/logger.js";
 
 export interface SkillRunnerDeps {
@@ -119,6 +123,8 @@ export async function runSkill(
       }
     } else if ("action" in step && step.action === "llm_analyze") {
       await handleLLMAnalyze(step, session.runDir, deps);
+    } else if ("action" in step && step.action === "agentic") {
+      await handleAgenticStep(step, deps);
     }
   }
 
@@ -192,6 +198,80 @@ async function handleLLMAnalyze(
     timer.finish(0, 0, { error: String(err) });
     log.error(`LLM analyze failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+/** Handle agentic step: LLM-driven autonomous execution */
+async function handleAgenticStep(
+  step: { action: "agentic"; goal: string; agent?: string; max_iterations?: number; tools?: string[] },
+  deps: SkillRunnerDeps
+): Promise<void> {
+  if (!deps.provider?.isReady()) {
+    log.warn("LLM not configured. Skipping agentic step.");
+    return;
+  }
+  if (!deps.provider.supportsToolCalling()) {
+    log.warn("Provider does not support tool-calling. Skipping agentic step.");
+    return;
+  }
+
+  log.info(`Agentic step: ${step.goal.slice(0, 100)}${step.goal.length > 100 ? "..." : ""}`);
+
+  // If agent is specified, use agent-scoped config
+  if (step.agent) {
+    const agent = getAgent(step.agent);
+    if (!agent) {
+      log.error(`Agent "${step.agent}" not found. Skipping agentic step.`);
+      return;
+    }
+
+    // Override max_iterations if step specifies it
+    if (step.max_iterations) {
+      agent.max_iterations = step.max_iterations;
+    }
+
+    const loopConfig = createAgentLoopConfig(agent, {
+      provider: deps.provider,
+      projectCtx: deps.projectCtx,
+      firmwareTools: deps.tools,
+      policy: deps.policy,
+      cwd: deps.cwd,
+      onToolCall: (name, input) => log.info(`  Tool: ${name}`),
+      onToolResult: (name, _result, isError) => {
+        if (isError) log.error(`  Tool ${name} failed`);
+        else log.success(`  Tool ${name} done`);
+      },
+      onTextOutput: (text) => { console.log(""); console.log(text); console.log(""); },
+    });
+
+    await runAgenticLoop(step.goal, [], loopConfig);
+    return;
+  }
+
+  // No agent specified — use default tools with optional tool filtering
+  const fullRegistry = ToolRegistry.createDefault(deps.tools);
+  const registry = step.tools
+    ? fullRegistry.createScoped(step.tools)
+    : fullRegistry;
+
+  const contextBlock = formatContextBlock(deps.projectCtx);
+  const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Complete the following goal using the available tools. Be precise and minimal in your changes.`;
+
+  await runAgenticLoop(step.goal, [], {
+    provider: deps.provider,
+    registry,
+    systemPrompt,
+    context: {
+      cwd: deps.cwd,
+      protectedPaths: deps.policy?.protected_paths,
+    },
+    maxIterations: step.max_iterations,
+    onToolCall: (name, input) => log.info(`  Tool: ${name}`),
+    onToolResult: (name, _result, isError) => {
+      if (isError) log.error(`  Tool ${name} failed`);
+      else log.success(`  Tool ${name} done`);
+    },
+    onTextOutput: (text) => { console.log(""); console.log(text); console.log(""); },
+  });
 }
 
 /** Print a compact evidence summary */

@@ -4,6 +4,7 @@ import type { Project } from "./schemas/project.schema.js";
 import type { ToolDef } from "./schemas/tool.schema.js";
 import type { ProjectContext } from "./utils/project-context.js";
 import type { LLMProvider, Message } from "./providers/provider.js";
+import type { ToolMessage } from "./providers/tool-types.js";
 import type { RunMode } from "./utils/run-mode.js";
 import { formatContextBlock } from "./utils/project-context.js";
 import { globalTracer } from "./utils/llm-tracer.js";
@@ -11,6 +12,8 @@ import { routeCommand } from "./commands/index.js";
 import { resolveIntent } from "./skills/intent-resolver.js";
 import { loadSkillMap } from "./skills/skill-loader.js";
 import { runSkill } from "./skills/skill-runner.js";
+import { runAgenticLoop } from "./agents/agentic-loop.js";
+import { ToolRegistry } from "./tools/tool-registry.js";
 import * as log from "./utils/logger.js";
 
 export interface AppContext {
@@ -26,8 +29,8 @@ export interface AppContext {
   confirm: (message: string) => Promise<boolean>;
 }
 
-/** Conversation history for multi-turn LLM interaction */
-const conversationHistory: Message[] = [];
+/** Conversation history for multi-turn LLM interaction (supports both text-only and tool-calling) */
+const conversationHistory: ToolMessage[] = [];
 
 /** Start the interactive REPL */
 export async function startRepl(ctx: AppContext): Promise<void> {
@@ -171,15 +174,67 @@ async function handleNaturalLanguage(
 
   // Build system prompt: project context + default agent prompt
   const contextBlock = formatContextBlock(ctx.projectCtx);
-  const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical.`;
+  const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical. You have access to tools for reading/writing files, searching code, and running shell commands. Use them when needed.`;
 
-  // Add user message to history
+  // New path: agentic loop (tool-calling provider)
+  if (ctx.provider.supportsToolCalling()) {
+    try {
+      const registry = ToolRegistry.createDefault(ctx.tools);
+      let streamingStarted = false;
+      const result = await runAgenticLoop(input, conversationHistory, {
+        provider: ctx.provider,
+        registry,
+        systemPrompt,
+        streaming: true,
+        context: {
+          cwd: process.cwd(),
+          protectedPaths: ctx.config.policy.protected_paths,
+        },
+        maxTokens: ctx.config.provider.max_tokens,
+        temperature: ctx.config.provider.temperature,
+        onToolCall: (name, toolInput) => {
+          if (streamingStarted) { process.stdout.write("\n"); streamingStarted = false; }
+          log.info(`Tool: ${name}(${summarizeInput(toolInput)})`);
+        },
+        onToolResult: (name, result, isError) => {
+          if (isError) {
+            log.error(`Tool ${name} error: ${result.slice(0, 200)}`);
+          } else {
+            log.success(`Tool ${name} done (${result.length} chars)`);
+          }
+        },
+        onTextOutput: (text) => {
+          // Fallback for non-streaming responses
+          console.log("");
+          console.log(text);
+          console.log("");
+        },
+        onTextDelta: (delta) => {
+          if (!streamingStarted) { process.stdout.write("\n"); streamingStarted = true; }
+          process.stdout.write(delta);
+        },
+      });
+      if (streamingStarted) { process.stdout.write("\n\n"); }
+
+      // Update conversation history with the full agentic conversation
+      conversationHistory.length = 0;
+      conversationHistory.push(...result.messages);
+    } catch (err) {
+      log.error(`Agentic loop failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return;
+  }
+
+  // Legacy path: text-only chat (for providers without tool-calling)
   conversationHistory.push({ role: "user", content: input });
 
   const timer = globalTracer.startCall("free_chat");
   try {
     const response = await ctx.provider.complete({
-      messages: conversationHistory,
+      messages: conversationHistory.map((m) => ({
+        role: m.role,
+        content: typeof m.content === "string" ? m.content : "",
+      })),
       system: systemPrompt,
       max_tokens: ctx.config.provider.max_tokens,
       temperature: ctx.config.provider.temperature,
@@ -198,6 +253,16 @@ async function handleNaturalLanguage(
     timer.finish(0, 0, { error: String(err) });
     log.error(`LLM call failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+/** Summarize tool input for display (keep it short) */
+function summarizeInput(input: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(input)) {
+    const str = String(value);
+    parts.push(`${key}: ${str.length > 60 ? str.slice(0, 60) + "..." : str}`);
+  }
+  return parts.join(", ");
 }
 
 /** Execute a skill from the REPL context */

@@ -8,6 +8,8 @@ export const AgentConfigSchema = z.object({
   allowed_paths: z.array(z.string()).default([]),
   protected_paths: z.array(z.string()).optional(),
   tools: z.array(z.string()).optional(),
+  max_iterations: z.number().int().positive().optional(),
+  temperature: z.number().min(0).max(2).optional(),
 });
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;

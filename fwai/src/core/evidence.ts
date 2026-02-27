@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { getRunsDir, generateRunId } from "../utils/paths.js";
 import { globalTracer } from "../utils/llm-tracer.js";
 import { generateDiff, getGitBranch, getGitCommit } from "./diff.js";
-import { EvidenceSchema, type Evidence, type ToolResult, type HardwareState, type BootStatus } from "../schemas/evidence.schema.js";
+import { EvidenceSchema, type Evidence, type ToolResult, type HardwareState, type BootStatus, type AgenticSession } from "../schemas/evidence.schema.js";
 import type { ProjectContext } from "../utils/project-context.js";
 import * as log from "../utils/logger.js";
 
@@ -16,6 +16,7 @@ export interface RunSession {
   skill?: string;
   hardwareState?: HardwareState;
   bootStatus?: BootStatus;
+  agenticSession?: AgenticSession;
 }
 
 /** Create a new run directory and session */
@@ -74,6 +75,7 @@ export function writeEvidence(
     },
     hardware: session.hardwareState,
     boot_status: session.bootStatus,
+    agentic: session.agenticSession,
     llm:
       tracer.getCalls().length > 0
         ? {

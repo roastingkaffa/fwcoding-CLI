@@ -60,6 +60,10 @@ export class OpenAIProvider implements LLMProvider {
     };
   }
 
+  supportsToolCalling(): boolean {
+    return false;
+  }
+
   isReady(): boolean {
     return this.ready;
   }

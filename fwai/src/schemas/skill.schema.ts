@@ -17,10 +17,19 @@ const LLMAnalyzeStepSchema = z.object({
   prompt: z.string(),
 });
 
+const AgenticStepSchema = z.object({
+  action: z.literal("agentic"),
+  goal: z.string(),
+  agent: z.string().optional(),
+  max_iterations: z.number().int().positive().optional(),
+  tools: z.array(z.string()).optional(),
+});
+
 export const SkillStepSchema = z.union([
   ToolStepSchema,
   EvidenceStepSchema,
   LLMAnalyzeStepSchema,
+  AgenticStepSchema,
 ]);
 
 export const SkillConfigSchema = z.object({
