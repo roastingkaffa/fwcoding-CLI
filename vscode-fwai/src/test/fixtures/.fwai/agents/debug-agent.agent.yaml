@@ -1,0 +1,6 @@
+description: Debugging assistant for firmware issues
+model: claude-sonnet-4-20250514
+tools:
+  - read_file
+  - search_grep
+  - bash

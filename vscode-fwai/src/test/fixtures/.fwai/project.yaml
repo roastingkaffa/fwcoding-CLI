@@ -1,0 +1,13 @@
+name: test-firmware
+target:
+  mcu: STM32F407VG
+  arch: arm
+  board: discovery
+  flash_size: "1M"
+  ram_size: "192K"
+toolchain:
+  compiler: arm-none-eabi-gcc
+  build_system: make
+serial:
+  port: /dev/ttyUSB0
+  baud: 115200

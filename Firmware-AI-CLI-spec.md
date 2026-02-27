@@ -1462,7 +1462,7 @@ CI Timeout 支援：
 - [x] MCP server integration (stub — interface defined)
 - [x] Multi-agent concurrency (orchestrator with bounded semaphore)
 - [x] CI/CD integration guide (GitHub Actions / GitLab CI)
-- [ ] VS Code extension
+- [x] VS Code extension
 
 ### Agentic Architecture (added in Phases 1–6 Upgrade)
 

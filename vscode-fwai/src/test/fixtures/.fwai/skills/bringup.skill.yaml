@@ -1,0 +1,8 @@
+description: Build and flash firmware
+steps:
+  - type: tool
+    tool: build
+  - type: tool
+    tool: flash
+  - type: evidence
+    prompt: Verify build and flash succeeded

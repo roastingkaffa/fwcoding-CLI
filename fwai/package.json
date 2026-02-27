@@ -6,6 +6,10 @@
   "bin": {
     "fwai": "./dist/cli.js"
   },
+  "exports": {
+    ".": "./dist/cli.js",
+    "./lib": "./dist/lib.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

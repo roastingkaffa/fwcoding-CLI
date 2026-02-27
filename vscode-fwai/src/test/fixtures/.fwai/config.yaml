@@ -1,0 +1,14 @@
+provider:
+  name: anthropic
+  model: claude-sonnet-4-20250514
+  api_key_env: ANTHROPIC_API_KEY
+
+policy:
+  max_files: 20
+  max_lines: 500
+  protected_paths:
+    - "*.key"
+    - "*.pem"
+
+logging:
+  level: info

@@ -1,0 +1,16 @@
+{
+  "run_id": "run-001",
+  "timestamp": "2026-02-27T10:00:00Z",
+  "skill": "bringup",
+  "status": "pass",
+  "tool_results": [
+    { "tool": "build", "status": "pass", "duration_ms": 5200, "output": "Build succeeded" },
+    { "tool": "flash", "status": "pass", "duration_ms": 3100, "output": "Flash succeeded" }
+  ],
+  "project_context": {
+    "name": "test-firmware",
+    "mcu": "STM32F407VG",
+    "compiler": "arm-none-eabi-gcc",
+    "build_system": "make"
+  }
+}
