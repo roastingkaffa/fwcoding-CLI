@@ -1,0 +1,38 @@
+name: smart-bringup
+description: "Intelligent bringup — builds, analyzes errors with AI, flashes, monitors boot"
+triggers:
+  - "smart bringup"
+  - "ai bringup"
+  - "intelligent build"
+steps:
+  # Step 1: Fixed — run build tool
+  - tool: build
+    on_fail: continue
+
+  # Step 2: Agentic — if build fails, let AI analyze and fix
+  - action: agentic
+    goal: |
+      The build may have failed. Read the build log at ${run_dir}/build.log,
+      analyze any errors, and attempt to fix them. Then re-run the build.
+      Only modify files under src/ — never touch boot/** or *.ld files.
+    agent: bsp
+    max_iterations: 10
+    tools:
+      - read_file
+      - write_file
+      - edit_file
+      - grep
+      - glob
+      - bash
+
+  # Step 3: Fixed — flash firmware
+  - tool: flash
+    on_fail: abort
+
+  # Step 4: Fixed — monitor boot
+  - tool: monitor
+    on_fail: continue
+
+  # Step 5: Generate evidence
+  - action: evidence
+    summary: true

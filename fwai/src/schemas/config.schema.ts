@@ -44,6 +44,24 @@ export const LoggingSchema = z.object({
   color: z.boolean().default(true),
 });
 
+export const KBConfigSchema = z.object({
+  enabled: z.boolean().default(true),
+  max_context_tokens: z.number().int().positive().default(4000),
+  include: z.array(z.string()).default(["**/*.md", "**/*.txt"]),
+  exclude: z.array(z.string()).default([]),
+});
+
+export const MCPServerConfigSchema = z.object({
+  name: z.string(),
+  command: z.string(),
+  args: z.array(z.string()).default([]),
+  env: z.record(z.string()).optional(),
+});
+
+export const MCPConfigSchema = z.object({
+  servers: z.array(MCPServerConfigSchema).default([]),
+});
+
 export const ConfigSchema = z.object({
   version: z.string().default("1.0"),
   provider: ProviderConfigSchema,
@@ -51,6 +69,8 @@ export const ConfigSchema = z.object({
   intent: IntentConfigSchema.default({}),
   mode: ModeSchema.default({}),
   logging: LoggingSchema.default({}),
+  kb: KBConfigSchema.optional(),
+  mcp: MCPConfigSchema.optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

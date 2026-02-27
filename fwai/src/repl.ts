@@ -14,6 +14,7 @@ import { loadSkillMap } from "./skills/skill-loader.js";
 import { runSkill } from "./skills/skill-runner.js";
 import { runAgenticLoop } from "./agents/agentic-loop.js";
 import { ToolRegistry } from "./tools/tool-registry.js";
+import { loadKBDocuments, searchKB, formatKBContext } from "./core/kb-loader.js";
 import * as log from "./utils/logger.js";
 
 export interface AppContext {
@@ -172,9 +173,17 @@ async function handleNaturalLanguage(
     return;
   }
 
-  // Build system prompt: project context + default agent prompt
+  // Build system prompt: project context + KB context + default agent prompt
   const contextBlock = formatContextBlock(ctx.projectCtx);
-  const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical. You have access to tools for reading/writing files, searching code, and running shell commands. Use them when needed.`;
+  let kbBlock = "";
+  if (ctx.config.kb?.enabled !== false) {
+    const kbDocs = loadKBDocuments(process.cwd(), ctx.config.kb);
+    const kbResults = searchKB(input, kbDocs);
+    if (kbResults.length > 0) {
+      kbBlock = "\n\n" + formatKBContext(kbResults, ctx.config.kb?.max_context_tokens);
+    }
+  }
+  const systemPrompt = `${contextBlock}${kbBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical. You have access to tools for reading/writing files, searching code, and running shell commands. Use them when needed.`;
 
   // New path: agentic loop (tool-calling provider)
   if (ctx.provider.supportsToolCalling()) {
