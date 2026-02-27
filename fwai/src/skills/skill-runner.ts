@@ -16,6 +16,7 @@ import { runAgenticLoop } from "../agents/agentic-loop.js";
 import { getAgent } from "../agents/agent-loader.js";
 import { createAgentLoopConfig } from "../agents/agent-runtime.js";
 import { ToolRegistry } from "../tools/tool-registry.js";
+import { startSpinner, stopSpinner, succeedSpinner, failSpinner } from "../utils/ui.js";
 import * as log from "../utils/logger.js";
 
 export interface SkillRunnerDeps {
@@ -79,7 +80,7 @@ export async function runSkill(
 
       // Check change budget before build
       if (step.tool === "build" && deps.policy) {
-        const budgetResult = checkChangeBudget(deps.policy, deps.cwd);
+        const budgetResult = await checkChangeBudget(deps.policy, deps.cwd, deps.provider);
         if (!budgetResult.withinBudget) {
           displayBudgetResult(budgetResult);
           if (deps.runMode === "ci") {
@@ -108,13 +109,19 @@ export async function runSkill(
         }
       }
 
+      startSpinner(`Running ${step.tool}...`);
       const { toolResult, bootStatus } = await runTool(toolDef, runCtx);
       session.toolResults.push(toolResult);
       if (bootStatus) session.bootStatus = bootStatus;
 
-      if (toolResult.status === "fail" && step.on_fail === "abort") {
-        log.error(`Step "${step.tool}" failed, aborting skill`);
-        break;
+      if (toolResult.status === "fail") {
+        failSpinner(`${step.tool} failed`);
+        if (step.on_fail === "abort") {
+          log.error(`Step "${step.tool}" failed, aborting skill`);
+          break;
+        }
+      } else {
+        succeedSpinner(`${step.tool} done`);
       }
     } else if ("action" in step && step.action === "evidence") {
       const evidence = writeEvidence(session, deps.projectCtx);
@@ -170,6 +177,7 @@ async function handleLLMAnalyze(
   }
 
   log.info(`Analyzing ${path.basename(inputPath)} with LLM...`);
+  startSpinner(`Analyzing ${path.basename(inputPath)}...`);
 
   // Build system prompt with project context
   const contextBlock = formatContextBlock(deps.projectCtx);
@@ -189,6 +197,8 @@ async function handleLLMAnalyze(
       input_file: path.basename(inputPath),
     });
 
+    succeedSpinner(`Analysis complete`);
+
     // Print analysis
     log.output("");
     log.heading("LLM Analysis:");
@@ -196,6 +206,7 @@ async function handleLLMAnalyze(
     log.output("");
   } catch (err) {
     timer.finish(0, 0, { error: String(err) });
+    failSpinner(`Analysis failed`);
     log.error(`LLM analyze failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

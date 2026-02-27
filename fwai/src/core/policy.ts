@@ -2,8 +2,10 @@ import { execSync } from "node:child_process";
 import path from "node:path";
 import { minimatch } from "minimatch";
 import type { Policy } from "../schemas/config.schema.js";
+import type { LLMProvider } from "../providers/provider.js";
 import { loadEvidence, listRecentRuns } from "./evidence.js";
 import { isGitRepo } from "./diff.js";
+import { globalTracer } from "../utils/llm-tracer.js";
 import * as log from "../utils/logger.js";
 
 export interface FileChange {
@@ -45,7 +47,11 @@ export function checkProtectedPaths(
 }
 
 /** Check git diff against change budget */
-export function checkChangeBudget(policy: Policy, cwd?: string): BudgetCheckResult {
+export async function checkChangeBudget(
+  policy: Policy,
+  cwd?: string,
+  provider?: LLMProvider | null
+): Promise<BudgetCheckResult> {
   const maxFiles = policy.change_budget.max_files_changed;
   const maxLines = policy.change_budget.max_lines_changed;
 
@@ -76,7 +82,12 @@ export function checkChangeBudget(policy: Policy, cwd?: string): BudgetCheckResu
   };
 
   if (!withinBudget) {
-    result.suggestedSplits = generateSplitSuggestions(fileBreakdown, maxLines);
+    // Try LLM-powered smart splitting, fall back to directory-based
+    result.suggestedSplits = await generateSmartSplitSuggestions(
+      fileBreakdown,
+      maxLines,
+      provider
+    );
   }
 
   return result;
@@ -161,6 +172,81 @@ function parseGitDiffNumstat(cwd?: string): FileChange[] {
     return files;
   } catch {
     return [];
+  }
+}
+
+/** Use LLM to semantically group files, falling back to directory-based splitting */
+export async function generateSmartSplitSuggestions(
+  files: FileChange[],
+  maxLinesPerPatch: number,
+  provider?: LLMProvider | null
+): Promise<SplitSuggestion[]> {
+  if (!provider?.isReady() || files.length === 0) {
+    return generateSplitSuggestions(files, maxLinesPerPatch);
+  }
+
+  const fileList = files
+    .map((f) => `${f.file} (+${f.added} -${f.removed})`)
+    .join("\n");
+
+  const prompt =
+    `You are a firmware code reviewer. Group these changed files into logical, ` +
+    `related patches (e.g., header/impl pairs, driver/config pairs, test groups).\n\n` +
+    `Changed files:\n${fileList}\n\n` +
+    `Max lines per patch: ${maxLinesPerPatch}\n\n` +
+    `Respond with ONLY a JSON array, no markdown fences:\n` +
+    `[{"label": "short description", "files": ["file1", "file2"]}]\n` +
+    `Every file must appear in exactly one group.`;
+
+  const timer = globalTracer.startCall("smart_split");
+  try {
+    const response = await provider.complete({
+      messages: [{ role: "user", content: prompt }],
+      system: "You are a code review assistant. Respond only with valid JSON.",
+      max_tokens: 1024,
+      temperature: 0,
+    });
+
+    timer.finish(response.usage.input_tokens, response.usage.output_tokens, {
+      purpose: "smart_split",
+    });
+
+    // Parse and validate the LLM response
+    const parsed = JSON.parse(response.content.trim()) as Array<{
+      label: string;
+      files: string[];
+    }>;
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("LLM returned empty or non-array response");
+    }
+
+    // Validate every file is accounted for
+    const allFiles = new Set(files.map((f) => f.file));
+    const groupedFiles = new Set(parsed.flatMap((g) => g.files));
+
+    for (const f of allFiles) {
+      if (!groupedFiles.has(f)) {
+        throw new Error(`File "${f}" missing from LLM grouping`);
+      }
+    }
+
+    // Build SplitSuggestion[] with computed line counts
+    const fileMap = new Map(files.map((f) => [f.file, f]));
+    return parsed.map((group) => ({
+      label: group.label,
+      files: group.files,
+      lines: group.files.reduce((sum, name) => {
+        const fc = fileMap.get(name);
+        return sum + (fc ? fc.added + fc.removed : 0);
+      }, 0),
+    }));
+  } catch (err) {
+    // Silent fallback to directory-based splitting
+    log.debug(
+      `Smart split fallback: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return generateSplitSuggestions(files, maxLinesPerPatch);
   }
 }
 

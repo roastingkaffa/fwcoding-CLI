@@ -12,7 +12,7 @@ export async function handleBuild(_args: string, ctx: AppContext): Promise<void>
   }
 
   // Check change budget before build
-  const budgetResult = checkChangeBudget(ctx.config.policy);
+  const budgetResult = await checkChangeBudget(ctx.config.policy, undefined, ctx.provider);
   if (!budgetResult.withinBudget) {
     displayBudgetResult(budgetResult);
     if (ctx.runMode === "ci") {

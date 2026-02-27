@@ -1,3 +1,5 @@
+import { pauseSpinner } from "./ui.js";
+
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type OutputMode = "normal" | "quiet" | "json";
 
@@ -48,42 +50,49 @@ export function getOutputMode(): OutputMode {
   return outputMode;
 }
 
+/** Pause spinner, log, resume spinner */
+function withSpinnerPause(fn: () => void): void {
+  const resume = pauseSpinner();
+  fn();
+  resume?.();
+}
+
 /** Raw content output (LLM analysis, budget display). Suppressed when quiet/json. */
 export function output(msg: string): void {
   if (isQuiet()) return;
-  console.log(msg);
+  withSpinnerPause(() => console.log(msg));
 }
 
 export function debug(msg: string): void {
   if (isQuiet()) return;
-  if (shouldLog("debug")) console.log(c("gray", `[debug] ${msg}`));
+  if (shouldLog("debug")) withSpinnerPause(() => console.log(c("gray", `[debug] ${msg}`)));
 }
 
 export function info(msg: string): void {
   if (isQuiet()) return;
-  if (shouldLog("info")) console.log(c("cyan", "ℹ") + ` ${msg}`);
+  if (shouldLog("info")) withSpinnerPause(() => console.log(c("cyan", "ℹ") + ` ${msg}`));
 }
 
 export function success(msg: string): void {
   if (isQuiet()) return;
-  if (shouldLog("info")) console.log(c("green", "✓") + ` ${msg}`);
+  if (shouldLog("info")) withSpinnerPause(() => console.log(c("green", "✓") + ` ${msg}`));
 }
 
 export function warn(msg: string): void {
   if (isQuiet()) return;
-  if (shouldLog("warn")) console.log(c("yellow", "⚠") + ` ${msg}`);
+  if (shouldLog("warn")) withSpinnerPause(() => console.log(c("yellow", "⚠") + ` ${msg}`));
 }
 
 export function error(msg: string): void {
-  if (shouldLog("error")) console.error(c("red", "✗") + ` ${msg}`);
+  if (shouldLog("error")) withSpinnerPause(() => console.error(c("red", "✗") + ` ${msg}`));
 }
 
 export function heading(msg: string): void {
   if (isQuiet()) return;
-  console.log(c("bold", msg));
+  withSpinnerPause(() => console.log(c("bold", msg)));
 }
 
 export function line(char = "━", len = 56): void {
   if (isQuiet()) return;
-  console.log(char.repeat(len));
+  withSpinnerPause(() => console.log(char.repeat(len)));
 }
