@@ -37,6 +37,22 @@ export interface LLMProvider {
 
   /** Get provider status info */
   status(): ProviderStatus;
+
+  /** Whether this provider supports tool-calling (Anthropic tool_use protocol) */
+  supportsToolCalling(): boolean;
+
+  /** Send messages with tool definitions, get structured content blocks back.
+   *  Only available when supportsToolCalling() returns true. */
+  completeWithTools?(
+    request: import("./tool-types.js").ToolCompletionRequest
+  ): Promise<import("./tool-types.js").ToolCompletionResponse>;
+
+  /** Streaming version of completeWithTools — streams text deltas via callbacks.
+   *  Returns the same final response as completeWithTools(). */
+  completeWithToolsStreaming?(
+    request: import("./tool-types.js").ToolCompletionRequest,
+    callbacks: import("./tool-types.js").StreamCallbacks
+  ): Promise<import("./tool-types.js").ToolCompletionResponse>;
 }
 
 export interface ProviderInitConfig {

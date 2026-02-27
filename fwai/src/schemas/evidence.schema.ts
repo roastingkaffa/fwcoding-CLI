@@ -78,6 +78,21 @@ export const ProjectContextSchema = z.object({
   git_commit: z.string().optional(),
 });
 
+export const AgenticToolCallSchema = z.object({
+  tool_name: z.string(),
+  input_summary: z.string(),
+  output_summary: z.string(),
+  is_error: z.boolean(),
+  duration_ms: z.number(),
+});
+
+export const AgenticSessionSchema = z.object({
+  tool_calls: z.array(AgenticToolCallSchema),
+  total_iterations: z.number().int(),
+  files_read: z.array(z.string()),
+  files_written: z.array(z.string()),
+});
+
 export const EvidenceSchema = z.object({
   run_id: z.string(),
   skill: z.string().optional(),
@@ -91,6 +106,7 @@ export const EvidenceSchema = z.object({
   hardware: HardwareStateSchema.optional(),
   boot_status: BootStatusSchema.optional(),
   llm: LLMTracingSchema.optional(),
+  agentic: AgenticSessionSchema.optional(),
   project: ProjectContextSchema,
 });
 
@@ -100,3 +116,5 @@ export type LLMCallRecord = z.infer<typeof LLMCallRecordSchema>;
 export type HardwareState = z.infer<typeof HardwareStateSchema>;
 export type BootStatus = z.infer<typeof BootStatusSchema>;
 export type Changes = z.infer<typeof ChangesSchema>;
+export type AgenticToolCall = z.infer<typeof AgenticToolCallSchema>;
+export type AgenticSession = z.infer<typeof AgenticSessionSchema>;

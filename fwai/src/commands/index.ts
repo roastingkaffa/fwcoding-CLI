@@ -8,6 +8,7 @@ import { handleAgents } from "./agents.js";
 import { handleSkills } from "./skills.js";
 import { handleConfig } from "./config.js";
 import { handleDoctor } from "./doctor.js";
+import { handleAgentChat } from "./agent-chat.js";
 import * as log from "../utils/logger.js";
 
 export interface CommandDef {
@@ -26,6 +27,7 @@ export const commands: CommandDef[] = [
   { name: "skills", description: "List available skills", handler: handleSkills },
   { name: "config", description: "Show current configuration", handler: handleConfig },
   { name: "doctor", description: "Check toolchain & environment health", handler: handleDoctor },
+  { name: "agent", description: "Start scoped agent chat (e.g., /agent bsp)", handler: handleAgentChat },
 ];
 
 const commandMap = new Map(commands.map((c) => [c.name, c]));
