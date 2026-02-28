@@ -8,16 +8,12 @@
  */
 
 import type { LLMProvider } from "../providers/provider.js";
-import type {
-  ToolMessage,
-  ContentBlock,
-  ToolUseBlock,
-  ToolResultBlock,
-} from "../providers/tool-types.js";
+import type { ToolMessage, ToolResultBlock } from "../providers/tool-types.js";
 import { extractText, extractToolUseBlocks, toolResultBlock } from "../providers/tool-types.js";
 import type { ToolRegistry } from "../tools/tool-registry.js";
 import type { ToolExecutionContext } from "../tools/tool-interface.js";
 import { globalTracer } from "../utils/llm-tracer.js";
+import { ProviderError } from "../utils/errors.js";
 
 // ── Config & Result types ────────────────────────────────────────────
 
@@ -26,10 +22,10 @@ export interface AgenticLoopConfig {
   registry: ToolRegistry;
   systemPrompt: string;
   context: ToolExecutionContext;
-  maxIterations?: number;       // Default 50
+  maxIterations?: number; // Default 50
   maxTokens?: number;
   temperature?: number;
-  streaming?: boolean;          // Use streaming API if available
+  streaming?: boolean; // Use streaming API if available
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
   onToolResult?: (name: string, result: string, isError: boolean) => void;
   onTextOutput?: (text: string) => void;
@@ -45,7 +41,7 @@ export interface AgenticToolCall {
 }
 
 export interface AgenticLoopResult {
-  messages: ToolMessage[];       // Full conversation (including tool calls)
+  messages: ToolMessage[]; // Full conversation (including tool calls)
   finalText: string;
   toolCallCount: number;
   iterations: number;
@@ -74,17 +70,14 @@ export async function runAgenticLoop(
   let finalText = "";
 
   // Append user message to conversation
-  const messages: ToolMessage[] = [
-    ...conversationHistory,
-    { role: "user", content: userMessage },
-  ];
+  const messages: ToolMessage[] = [...conversationHistory, { role: "user", content: userMessage }];
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     // Call LLM with tools (streaming or non-streaming)
     const timer = globalTracer.startCall("agentic_loop");
 
     if (!provider.completeWithTools) {
-      throw new Error("Provider does not support tool calling");
+      throw new ProviderError("Provider does not support tool calling", undefined, provider.name);
     }
 
     const request = {
@@ -139,11 +132,7 @@ export async function runAgenticLoop(
       config.onToolCall?.(toolUse.name, toolUse.input);
 
       const startTime = Date.now();
-      const result = await registry.execute(
-        toolUse.name,
-        toolUse.input,
-        config.context
-      );
+      const result = await registry.execute(toolUse.name, toolUse.input, config.context);
       const durationMs = Date.now() - startTime;
 
       // Track for evidence
@@ -164,9 +153,7 @@ export async function runAgenticLoop(
 
       config.onToolResult?.(toolUse.name, result.content, result.is_error);
 
-      toolResults.push(
-        toolResultBlock(toolUse.id, result.content, result.is_error)
-      );
+      toolResults.push(toolResultBlock(toolUse.id, result.content, result.is_error));
     }
 
     // Append tool results as a user message (Anthropic protocol)

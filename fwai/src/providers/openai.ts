@@ -6,6 +6,7 @@ import type {
   CompletionRequest,
   CompletionResponse,
 } from "./provider.js";
+import { ProviderError } from "../utils/errors.js";
 
 export class OpenAIProvider implements LLMProvider {
   name = "openai";
@@ -32,7 +33,8 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
-    if (!this.client) throw new Error("OpenAI provider not initialized");
+    if (!this.client)
+      throw new ProviderError("OpenAI provider not initialized", undefined, "openai");
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
     if (request.system) {

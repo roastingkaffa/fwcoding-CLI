@@ -7,6 +7,7 @@ import { loadEvidence, listRecentRuns } from "./evidence.js";
 import { isGitRepo } from "./diff.js";
 import { globalTracer } from "../utils/llm-tracer.js";
 import * as log from "../utils/logger.js";
+import { PolicyViolationError } from "../utils/errors.js";
 
 export interface FileChange {
   file: string;
@@ -31,18 +32,12 @@ export interface BudgetCheckResult {
 }
 
 /** Check if a path is protected */
-export function isProtectedPath(
-  filePath: string,
-  protectedPaths: string[]
-): boolean {
+export function isProtectedPath(filePath: string, protectedPaths: string[]): boolean {
   return protectedPaths.some((pattern) => minimatch(filePath, pattern));
 }
 
 /** Check all protected paths against a list of changed files */
-export function checkProtectedPaths(
-  changedFiles: string[],
-  protectedPaths: string[]
-): string[] {
+export function checkProtectedPaths(changedFiles: string[], protectedPaths: string[]): string[] {
   return changedFiles.filter((f) => isProtectedPath(f, protectedPaths));
 }
 
@@ -83,11 +78,7 @@ export async function checkChangeBudget(
 
   if (!withinBudget) {
     // Try LLM-powered smart splitting, fall back to directory-based
-    result.suggestedSplits = await generateSmartSplitSuggestions(
-      fileBreakdown,
-      maxLines,
-      provider
-    );
+    result.suggestedSplits = await generateSmartSplitSuggestions(fileBreakdown, maxLines, provider);
   }
 
   return result;
@@ -98,7 +89,7 @@ export function displayBudgetResult(result: BudgetCheckResult): void {
   if (result.withinBudget) {
     log.success(
       `Change budget: ${result.filesChanged}/${result.maxFiles} files, ` +
-      `${result.linesChanged}/${result.maxLines} lines`
+        `${result.linesChanged}/${result.maxLines} lines`
     );
     return;
   }
@@ -116,7 +107,9 @@ export function displayBudgetResult(result: BudgetCheckResult): void {
   log.heading("  File breakdown:");
   for (const f of result.fileBreakdown) {
     const total = f.added + f.removed;
-    log.output(`    +${String(f.added).padEnd(4)} -${String(f.removed).padEnd(4)} (${total})  ${f.file}`);
+    log.output(
+      `    +${String(f.added).padEnd(4)} -${String(f.removed).padEnd(4)} (${total})  ${f.file}`
+    );
   }
 
   // Split suggestions
@@ -185,9 +178,7 @@ export async function generateSmartSplitSuggestions(
     return generateSplitSuggestions(files, maxLinesPerPatch);
   }
 
-  const fileList = files
-    .map((f) => `${f.file} (+${f.added} -${f.removed})`)
-    .join("\n");
+  const fileList = files.map((f) => `${f.file} (+${f.added} -${f.removed})`).join("\n");
 
   const prompt =
     `You are a firmware code reviewer. Group these changed files into logical, ` +
@@ -218,7 +209,7 @@ export async function generateSmartSplitSuggestions(
     }>;
 
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error("LLM returned empty or non-array response");
+      throw new PolicyViolationError("LLM returned empty or non-array response", "llm_grouping");
     }
 
     // Validate every file is accounted for
@@ -227,7 +218,7 @@ export async function generateSmartSplitSuggestions(
 
     for (const f of allFiles) {
       if (!groupedFiles.has(f)) {
-        throw new Error(`File "${f}" missing from LLM grouping`);
+        throw new PolicyViolationError(`File "${f}" missing from LLM grouping`, "llm_grouping");
       }
     }
 
@@ -243,9 +234,7 @@ export async function generateSmartSplitSuggestions(
     }));
   } catch (err) {
     // Silent fallback to directory-based splitting
-    log.debug(
-      `Smart split fallback: ${err instanceof Error ? err.message : String(err)}`
-    );
+    log.debug(`Smart split fallback: ${err instanceof Error ? err.message : String(err)}`);
     return generateSplitSuggestions(files, maxLinesPerPatch);
   }
 }

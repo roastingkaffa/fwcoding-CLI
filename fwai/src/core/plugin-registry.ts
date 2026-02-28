@@ -1,4 +1,5 @@
 import type { MarketplacePackage } from "../schemas/marketplace.schema.js";
+import { ProviderError } from "../utils/errors.js";
 
 const DEFAULT_TIMEOUT = 10000;
 
@@ -9,7 +10,8 @@ export async function searchRegistry(
 ): Promise<MarketplacePackage[]> {
   const url = `${registryUrl}/search?q=${encodeURIComponent(query)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
-  if (!res.ok) throw new Error(`Registry search failed: HTTP ${res.status}`);
+  if (!res.ok)
+    throw new ProviderError(`Registry search failed: HTTP ${res.status}`, res.status, "registry");
   return (await res.json()) as MarketplacePackage[];
 }
 
@@ -21,7 +23,8 @@ export async function fetchPackage(
 ): Promise<{ buffer: Buffer; checksum?: string }> {
   const url = `${registryUrl}/packages/${encodeURIComponent(name)}/${encodeURIComponent(version)}.tar.gz`;
   const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
-  if (!res.ok) throw new Error(`Package fetch failed: HTTP ${res.status}`);
+  if (!res.ok)
+    throw new ProviderError(`Package fetch failed: HTTP ${res.status}`, res.status, "registry");
 
   const checksum = res.headers.get("x-checksum-sha256") ?? undefined;
   const arrayBuf = await res.arrayBuffer();
@@ -35,6 +38,7 @@ export async function getPackageInfo(
 ): Promise<MarketplacePackage> {
   const url = `${registryUrl}/packages/${encodeURIComponent(name)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(DEFAULT_TIMEOUT) });
-  if (!res.ok) throw new Error(`Package info failed: HTTP ${res.status}`);
+  if (!res.ok)
+    throw new ProviderError(`Package info failed: HTTP ${res.status}`, res.status, "registry");
   return (await res.json()) as MarketplacePackage;
 }

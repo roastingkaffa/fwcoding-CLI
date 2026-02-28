@@ -6,10 +6,15 @@
  * until a real MCP client library is integrated.
  */
 
-import type { AgenticTool, ToolExecutionContext, ToolExecutionResult } from "../tools/tool-interface.js";
+import type {
+  AgenticTool,
+  ToolExecutionContext,
+  ToolExecutionResult,
+} from "../tools/tool-interface.js";
 import type { LLMToolDefinition } from "../providers/tool-types.js";
 import type { MCPServerConfig } from "../schemas/mcp.schema.js";
 import * as log from "../utils/logger.js";
+import { FwaiError } from "../utils/errors.js";
 
 // ── Interfaces ────────────────────────────────────────────────────────
 
@@ -104,8 +109,9 @@ export class StubMCPConnection implements MCPConnection {
   }
 
   async callTool(name: string, _input: Record<string, unknown>): Promise<string> {
-    throw new Error(
-      `MCP stub: Cannot call tool "${name}" on "${this.config.name}". Server not implemented.`
+    throw new FwaiError(
+      `MCP stub: Cannot call tool "${name}" on "${this.config.name}". Server not implemented.`,
+      "MCP_STUB"
     );
   }
 

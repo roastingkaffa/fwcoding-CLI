@@ -10,9 +10,9 @@ import type {
   ToolCompletionRequest,
   ToolCompletionResponse,
   ContentBlock,
-  ToolMessage,
   StreamCallbacks,
 } from "./tool-types.js";
+import { ProviderError } from "../utils/errors.js";
 
 export class AnthropicProvider implements LLMProvider {
   name = "anthropic";
@@ -39,7 +39,8 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
-    if (!this.client) throw new Error("Anthropic provider not initialized");
+    if (!this.client)
+      throw new ProviderError("Anthropic provider not initialized", undefined, "anthropic");
 
     const response = await this.client.messages.create({
       model: this.model,
@@ -68,14 +69,13 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async completeWithTools(request: ToolCompletionRequest): Promise<ToolCompletionResponse> {
-    if (!this.client) throw new Error("Anthropic provider not initialized");
+    if (!this.client)
+      throw new ProviderError("Anthropic provider not initialized", undefined, "anthropic");
 
     // Map ToolMessage[] to Anthropic SDK message format
     const messages = request.messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      content: typeof m.content === "string"
-        ? m.content
-        : mapContentBlocksToSDK(m.content),
+      content: typeof m.content === "string" ? m.content : mapContentBlocksToSDK(m.content),
     }));
 
     // Map tool definitions to Anthropic SDK format
@@ -125,13 +125,12 @@ export class AnthropicProvider implements LLMProvider {
     request: ToolCompletionRequest,
     callbacks: StreamCallbacks
   ): Promise<ToolCompletionResponse> {
-    if (!this.client) throw new Error("Anthropic provider not initialized");
+    if (!this.client)
+      throw new ProviderError("Anthropic provider not initialized", undefined, "anthropic");
 
     const messages = request.messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      content: typeof m.content === "string"
-        ? m.content
-        : mapContentBlocksToSDK(m.content),
+      content: typeof m.content === "string" ? m.content : mapContentBlocksToSDK(m.content),
     }));
 
     const tools = request.tools?.map((t) => ({
@@ -204,9 +203,7 @@ export class AnthropicProvider implements LLMProvider {
 }
 
 /** Map our ContentBlock[] to Anthropic SDK message content */
-function mapContentBlocksToSDK(
-  blocks: ContentBlock[]
-): Anthropic.MessageParam["content"] {
+function mapContentBlocksToSDK(blocks: ContentBlock[]): Anthropic.MessageParam["content"] {
   return blocks.map((block) => {
     switch (block.type) {
       case "text":

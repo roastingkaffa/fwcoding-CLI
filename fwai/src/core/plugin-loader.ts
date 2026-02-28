@@ -9,6 +9,7 @@ import { AgentConfigSchema, type AgentConfig } from "../schemas/agent.schema.js"
 import type { MarketplacePackage } from "../schemas/marketplace.schema.js";
 import { fetchPackage } from "./plugin-registry.js";
 import * as log from "../utils/logger.js";
+import { FwaiError } from "../utils/errors.js";
 
 const PLUGINS_DIR = "plugins";
 
@@ -45,7 +46,10 @@ export async function installPlugin(
   const targetDir = path.join(pluginsDir, name);
 
   if (fs.existsSync(targetDir)) {
-    throw new Error(`Plugin "${name}" is already installed. Uninstall first.`);
+    throw new FwaiError(
+      `Plugin "${name}" is already installed. Uninstall first.`,
+      "PLUGIN_ALREADY_INSTALLED"
+    );
   }
 
   log.info(`Fetching plugin "${name}" from ${registryUrl}...`);
@@ -54,7 +58,10 @@ export async function installPlugin(
   // Verify SHA-256 checksum
   const computed = crypto.createHash("sha256").update(buffer).digest("hex");
   if (checksum && computed !== checksum) {
-    throw new Error(`Checksum mismatch for "${name}": expected ${checksum}, got ${computed}`);
+    throw new FwaiError(
+      `Checksum mismatch for "${name}": expected ${checksum}, got ${computed}`,
+      "PLUGIN_CHECKSUM_MISMATCH"
+    );
   }
 
   // Extract tarball (simplified: write buffer as tar.gz, extract with tar)
@@ -75,7 +82,7 @@ export function uninstallPlugin(name: string, cwd?: string): void {
   const targetDir = path.join(pluginsDir, name);
 
   if (!fs.existsSync(targetDir)) {
-    throw new Error(`Plugin "${name}" is not installed.`);
+    throw new FwaiError(`Plugin "${name}" is not installed.`, "PLUGIN_NOT_INSTALLED");
   }
 
   fs.rmSync(targetDir, { recursive: true, force: true });

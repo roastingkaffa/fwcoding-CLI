@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import type { OTABundle, OTATarget, OTAPolicy } from "../schemas/ota.schema.js";
 import * as log from "../utils/logger.js";
+import { ToolExecutionError } from "../utils/errors.js";
 
 export interface OTAResult {
   device_id: string;
@@ -29,12 +30,15 @@ export function buildOTABundle(
   // Convert ELF to binary using objcopy
   const resolvedElf = cwd ? path.resolve(cwd, elfPath) : path.resolve(elfPath);
   try {
-    execSync(
-      `arm-none-eabi-objcopy -O binary "${resolvedElf}" "${binaryPath}"`,
-      { stdio: "pipe", cwd }
-    );
+    execSync(`arm-none-eabi-objcopy -O binary "${resolvedElf}" "${binaryPath}"`, {
+      stdio: "pipe",
+      cwd,
+    });
   } catch (err) {
-    throw new Error(`objcopy failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new ToolExecutionError(
+      `objcopy failed: ${err instanceof Error ? err.message : String(err)}`,
+      "ota"
+    );
   }
 
   // Compute SHA-256
@@ -46,10 +50,16 @@ export function buildOTABundle(
   let gitTag: string | undefined;
   try {
     gitCommit = execSync("git rev-parse HEAD", { stdio: "pipe", cwd }).toString().trim();
-  } catch { /* not in git repo */ }
+  } catch {
+    /* not in git repo */
+  }
   try {
-    gitTag = execSync("git describe --tags --exact-match 2>/dev/null", { stdio: "pipe", cwd }).toString().trim();
-  } catch { /* no tag */ }
+    gitTag = execSync("git describe --tags --exact-match 2>/dev/null", { stdio: "pipe", cwd })
+      .toString()
+      .trim();
+  } catch {
+    /* no tag */
+  }
 
   const bundle: OTABundle = {
     version,
@@ -62,7 +72,9 @@ export function buildOTABundle(
   };
 
   fs.writeFileSync(manifestPath, JSON.stringify(bundle, null, 2));
-  log.success(`OTA bundle ${version} created: ${binaryPath} (SHA-256: ${checksum.slice(0, 16)}...)`);
+  log.success(
+    `OTA bundle ${version} created: ${binaryPath} (SHA-256: ${checksum.slice(0, 16)}...)`
+  );
 
   return bundle;
 }
@@ -98,7 +110,9 @@ export async function deployToTarget(
 
   // Confirm if policy requires it
   if (policy.confirm) {
-    const ok = await confirm(`Deploy ${bundle.version} to ${target.device_id} via ${target.transport}? (y/N) `);
+    const ok = await confirm(
+      `Deploy ${bundle.version} to ${target.device_id} via ${target.transport}? (y/N) `
+    );
     if (!ok) {
       return { device_id: target.device_id, status: "skipped", duration_ms: Date.now() - start };
     }
@@ -121,10 +135,11 @@ export async function deployToTarget(
   try {
     switch (target.transport) {
       case "serial": {
-        execSync(
-          `st-flash write "${bundle.binary_path}" 0x08000000`,
-          { stdio: "pipe", cwd, timeout: 60000 }
-        );
+        execSync(`st-flash write "${bundle.binary_path}" 0x08000000`, {
+          stdio: "pipe",
+          cwd,
+          timeout: 60000,
+        });
         break;
       }
       case "network": {
@@ -134,7 +149,7 @@ export async function deployToTarget(
           body: fs.readFileSync(bundle.binary_path),
           signal: AbortSignal.timeout(60000),
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        if (!res.ok) throw new ToolExecutionError(`HTTP ${res.status}: ${res.statusText}`, "ota");
         break;
       }
       case "board-farm": {

@@ -7,6 +7,7 @@
 
 import type { Board, BoardAllocation } from "../schemas/board-farm.schema.js";
 import * as log from "../utils/logger.js";
+import { ConfigValidationError } from "../utils/errors.js";
 
 export interface BoardFarmClient {
   listBoards(): Promise<Board[]>;
@@ -24,7 +25,7 @@ export class StubBoardFarmClient implements BoardFarmClient {
 
   async allocate(boardId: string): Promise<BoardAllocation> {
     log.warn(`Board farm stub: cannot allocate board "${boardId}".`);
-    throw new Error("Board farm not configured");
+    throw new ConfigValidationError("Board farm not configured", "BOARD_FARM");
   }
 
   async release(boardId: string): Promise<void> {
