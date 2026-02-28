@@ -93,6 +93,28 @@ export const AgenticSessionSchema = z.object({
   files_written: z.array(z.string()),
 });
 
+export const OTATargetResultSchema = z.object({
+  device_id: z.string(),
+  status: z.enum(["success", "fail", "skipped"]),
+  boot_verified: z.boolean().optional(),
+});
+
+export const OTAEvidenceSchema = z.object({
+  bundle_version: z.string(),
+  bundle_checksum: z.string(),
+  targets: z.array(OTATargetResultSchema).default([]),
+});
+
+export const DebugEvidenceSchema = z.object({
+  gdb_binary: z.string(),
+  elf_path: z.string(),
+  remote_target: z.string().optional(),
+  commands_run: z.array(z.string()),
+  registers: z.record(z.string()).optional(),
+  breakpoints_hit: z.array(z.string()).default([]),
+  duration_ms: z.number(),
+});
+
 export const EvidenceSchema = z.object({
   run_id: z.string(),
   skill: z.string().optional(),
@@ -108,6 +130,11 @@ export const EvidenceSchema = z.object({
   llm: LLMTracingSchema.optional(),
   agentic: AgenticSessionSchema.optional(),
   project: ProjectContextSchema,
+  operator: z.string().optional(),
+  session_id: z.string().optional(),
+  client_version: z.string().optional(),
+  ota: OTAEvidenceSchema.optional(),
+  debug: DebugEvidenceSchema.optional(),
 });
 
 export type Evidence = z.infer<typeof EvidenceSchema>;
@@ -117,5 +144,7 @@ export type HardwareState = z.infer<typeof HardwareStateSchema>;
 export type BootStatus = z.infer<typeof BootStatusSchema>;
 export type Changes = z.infer<typeof ChangesSchema>;
 export type AgenticToolCall = z.infer<typeof AgenticToolCallSchema>;
-export type MemoryAnalysis = z.infer<typeof MemoryAnalysisSchema>;
 export type AgenticSession = z.infer<typeof AgenticSessionSchema>;
+export type OTATargetResult = z.infer<typeof OTATargetResultSchema>;
+export type OTAEvidence = z.infer<typeof OTAEvidenceSchema>;
+export type DebugEvidence = z.infer<typeof DebugEvidenceSchema>;

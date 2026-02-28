@@ -75,6 +75,26 @@
       {
         "command": "fwai.showConfig",
         "title": "FWAI: Show Config"
+      },
+      {
+        "command": "fwai.marketplace",
+        "title": "FWAI: Plugin Marketplace"
+      },
+      {
+        "command": "fwai.license",
+        "title": "FWAI: License Status"
+      },
+      {
+        "command": "fwai.audit",
+        "title": "FWAI: Audit Export"
+      },
+      {
+        "command": "fwai.ota",
+        "title": "FWAI: OTA Deploy"
+      },
+      {
+        "command": "fwai.debug",
+        "title": "FWAI: Debug (GDB)"
       }
     ],
     "viewsContainers": {
@@ -103,6 +123,10 @@
         {
           "id": "fwai.toolsView",
           "name": "Tools"
+        },
+        {
+          "id": "fwai.pluginsView",
+          "name": "Plugins"
         }
       ],
       "panel": [

@@ -91,6 +91,37 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const configPath = vscode.Uri.file(`${cwd}/.fwai/config.yaml`);
       vscode.window.showTextDocument(configPath);
     }),
+    vscode.commands.registerCommand("fwai.marketplace", async () => {
+      const action = await vscode.window.showQuickPick(
+        ["Search", "Install", "Uninstall", "List Installed"],
+        { placeHolder: "Plugin Marketplace" }
+      );
+      if (action) output.appendLine(`Marketplace: ${action}`);
+    }),
+    vscode.commands.registerCommand("fwai.license", () => {
+      output.appendLine("License: checking status...");
+    }),
+    vscode.commands.registerCommand("fwai.audit", async () => {
+      const format = await vscode.window.showQuickPick(
+        ["json", "jsonl", "csv", "sarif", "html"],
+        { placeHolder: "Export format" }
+      );
+      if (format) output.appendLine(`Audit export: ${format}`);
+    }),
+    vscode.commands.registerCommand("fwai.ota", async () => {
+      const action = await vscode.window.showQuickPick(
+        ["Bundle", "Deploy", "Status", "Rollback", "List"],
+        { placeHolder: "OTA Workflow" }
+      );
+      if (action) output.appendLine(`OTA: ${action}`);
+    }),
+    vscode.commands.registerCommand("fwai.debug", async () => {
+      const action = await vscode.window.showQuickPick(
+        ["Run GDB", "Registers", "Backtrace", "Start OpenOCD"],
+        { placeHolder: "Debug / GDB" }
+      );
+      if (action) output.appendLine(`Debug: ${action}`);
+    }),
   );
 }
 

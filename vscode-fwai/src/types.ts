@@ -142,6 +142,62 @@ export interface ToolDef {
   failure_patterns?: string[];
 }
 
+// ── Commercial Types ────────────────────────────────────────────────
+
+export interface MarketplacePackage {
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  registry?: string;
+  artifacts: { tools: string[]; skills: string[]; agents: string[] };
+  checksum?: string;
+}
+
+export interface License {
+  license_key: string;
+  tier: "community" | "pro" | "team" | "enterprise";
+  seats?: number;
+  expires_at?: string;
+  features: string[];
+  issued_to?: string;
+}
+
+export interface LicenseStatus {
+  valid: boolean;
+  tier: "community" | "pro" | "team" | "enterprise";
+  features: Set<string>;
+  seatsAvailable?: number;
+  expiresAt?: string;
+  error?: string;
+}
+
+export interface OTABundle {
+  version: string;
+  elf_path: string;
+  binary_path: string;
+  checksum: string;
+  built_at: string;
+  git_commit?: string;
+  git_tag?: string;
+}
+
+export interface OTAResult {
+  device_id: string;
+  status: "success" | "fail" | "skipped";
+  boot_verified?: boolean;
+  duration_ms: number;
+  error?: string;
+}
+
+export interface GDBResult {
+  output: string;
+  registers?: Record<string, string>;
+  backtrace?: Array<{ level: number; function: string; file?: string; line?: number }>;
+  exitCode: number;
+  duration_ms: number;
+}
+
 // ── Memory Analysis ─────────────────────────────────────────────────
 
 export interface SizeOutput {

@@ -6,6 +6,7 @@ import { ToolDefSchema, type ToolDef } from "../schemas/tool.schema.js";
 import { AgentConfigSchema, type AgentConfig } from "../schemas/agent.schema.js";
 import { SkillConfigSchema, type SkillConfig } from "../schemas/skill.schema.js";
 import { workspacePath } from "../utils/paths.js";
+import { loadPluginArtifacts } from "./plugin-loader.js";
 import * as log from "../utils/logger.js";
 
 function loadYaml<T>(filePath: string, schema: { parse: (data: unknown) => T }): T {
@@ -26,56 +27,69 @@ export function loadProject(cwd?: string): Project {
   return loadYaml(filePath, ProjectSchema);
 }
 
-/** Load all tool definitions from .fwai/tools/*.tool.yaml */
+/** Load all tool definitions from .fwai/tools/*.tool.yaml + plugin tools */
 export function loadTools(cwd?: string): ToolDef[] {
   const toolsDir = workspacePath("tools", cwd);
-  if (!fs.existsSync(toolsDir)) return [];
-  return fs
-    .readdirSync(toolsDir)
-    .filter((f) => f.endsWith(".tool.yaml"))
-    .map((f) => {
+  const workspace: ToolDef[] = [];
+  if (fs.existsSync(toolsDir)) {
+    for (const f of fs.readdirSync(toolsDir).filter((f) => f.endsWith(".tool.yaml"))) {
       try {
-        return loadYaml(`${toolsDir}/${f}`, ToolDefSchema);
+        workspace.push(loadYaml(`${toolsDir}/${f}`, ToolDefSchema));
       } catch (e) {
         log.warn(`Failed to load tool ${f}: ${e}`);
-        return null;
       }
-    })
-    .filter((t): t is ToolDef => t !== null);
+    }
+  }
+
+  // Merge plugin tools
+  try {
+    const pluginArtifacts = loadPluginArtifacts(cwd);
+    return [...workspace, ...pluginArtifacts.tools];
+  } catch {
+    return workspace;
+  }
 }
 
-/** Load all agent configs from .fwai/agents/*.agent.yaml */
+/** Load all agent configs from .fwai/agents/*.agent.yaml + plugin agents */
 export function loadAgents(cwd?: string): AgentConfig[] {
   const agentsDir = workspacePath("agents", cwd);
-  if (!fs.existsSync(agentsDir)) return [];
-  return fs
-    .readdirSync(agentsDir)
-    .filter((f) => f.endsWith(".agent.yaml"))
-    .map((f) => {
+  const workspace: AgentConfig[] = [];
+  if (fs.existsSync(agentsDir)) {
+    for (const f of fs.readdirSync(agentsDir).filter((f) => f.endsWith(".agent.yaml"))) {
       try {
-        return loadYaml(`${agentsDir}/${f}`, AgentConfigSchema);
+        workspace.push(loadYaml(`${agentsDir}/${f}`, AgentConfigSchema));
       } catch (e) {
         log.warn(`Failed to load agent ${f}: ${e}`);
-        return null;
       }
-    })
-    .filter((a): a is AgentConfig => a !== null);
+    }
+  }
+
+  try {
+    const pluginArtifacts = loadPluginArtifacts(cwd);
+    return [...workspace, ...pluginArtifacts.agents];
+  } catch {
+    return workspace;
+  }
 }
 
-/** Load all skill configs from .fwai/skills/*.skill.yaml */
+/** Load all skill configs from .fwai/skills/*.skill.yaml + plugin skills */
 export function loadSkills(cwd?: string): SkillConfig[] {
   const skillsDir = workspacePath("skills", cwd);
-  if (!fs.existsSync(skillsDir)) return [];
-  return fs
-    .readdirSync(skillsDir)
-    .filter((f) => f.endsWith(".skill.yaml"))
-    .map((f) => {
+  const workspace: SkillConfig[] = [];
+  if (fs.existsSync(skillsDir)) {
+    for (const f of fs.readdirSync(skillsDir).filter((f) => f.endsWith(".skill.yaml"))) {
       try {
-        return loadYaml(`${skillsDir}/${f}`, SkillConfigSchema);
+        workspace.push(loadYaml(`${skillsDir}/${f}`, SkillConfigSchema));
       } catch (e) {
         log.warn(`Failed to load skill ${f}: ${e}`);
-        return null;
       }
-    })
-    .filter((s): s is SkillConfig => s !== null);
+    }
+  }
+
+  try {
+    const pluginArtifacts = loadPluginArtifacts(cwd);
+    return [...workspace, ...pluginArtifacts.skills];
+  } catch {
+    return workspace;
+  }
 }

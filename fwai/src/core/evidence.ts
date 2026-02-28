@@ -4,8 +4,12 @@ import { ZodError } from "zod";
 import { getRunsDir, generateRunId } from "../utils/paths.js";
 import { globalTracer } from "../utils/llm-tracer.js";
 import { generateDiff, getGitBranch, getGitCommit } from "./diff.js";
-import { EvidenceSchema, type Evidence, type ToolResult, type HardwareState, type BootStatus, type AgenticSession, type MemoryAnalysis } from "../schemas/evidence.schema.js";
+import { EvidenceSchema, type Evidence, type ToolResult, type HardwareState, type BootStatus, type AgenticSession } from "../schemas/evidence.schema.js";
 import type { ProjectContext } from "../utils/project-context.js";
+import type { Policy } from "../schemas/config.schema.js";
+import type { CloudConfig } from "../schemas/license.schema.js";
+import { appendToAuditLog } from "./audit-export.js";
+import { syncRunToCloud } from "./cloud-sync.js";
 import * as log from "../utils/logger.js";
 
 export interface RunSession {
@@ -17,7 +21,6 @@ export interface RunSession {
   hardwareState?: HardwareState;
   bootStatus?: BootStatus;
   agenticSession?: AgenticSession;
-  memoryAnalysis?: MemoryAnalysis;
 }
 
 /** Create a new run directory and session */
@@ -38,7 +41,8 @@ export function createRunSession(label: string, skill?: string, cwd?: string): R
 /** Write evidence.json to the run directory */
 export function writeEvidence(
   session: RunSession,
-  projectCtx: ProjectContext
+  projectCtx: ProjectContext,
+  opts?: { policy?: Policy; cloudConfig?: CloudConfig }
 ): Evidence {
   const endTime = new Date();
   const overallStatus = session.toolResults.every((t) => t.status === "success")
@@ -77,7 +81,8 @@ export function writeEvidence(
     hardware: session.hardwareState,
     boot_status: session.bootStatus,
     agentic: session.agenticSession,
-    memory: session.memoryAnalysis,
+    operator: process.env.USER ?? process.env.USERNAME,
+    client_version: "0.1.0",
     llm:
       tracer.getCalls().length > 0
         ? {
@@ -116,6 +121,22 @@ export function writeEvidence(
   const evidencePath = path.join(session.runDir, "evidence.json");
   fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
   log.success(`Evidence written to ${evidencePath}`);
+
+  // Audit log append
+  if (opts?.policy?.audit_log?.enabled) {
+    try {
+      appendToAuditLog(evidence, opts.policy.audit_log.path);
+    } catch (e) {
+      log.debug(`Audit log append failed: ${e}`);
+    }
+  }
+
+  // Cloud sync (fire-and-forget)
+  if (opts?.cloudConfig?.sync_enabled) {
+    syncRunToCloud(evidence, opts.cloudConfig).catch((e) => {
+      log.debug(`Cloud sync failed: ${e}`);
+    });
+  }
 
   return evidence;
 }

@@ -14,6 +14,7 @@ import { createProvider } from "./providers/provider-factory.js";
 import { globalTracer } from "./utils/llm-tracer.js";
 import { startRepl, type AppContext } from "./repl.js";
 import type { RunSession } from "./core/evidence.js";
+import { loadCachedLicense } from "./core/license-manager.js";
 import * as log from "./utils/logger.js";
 
 const program = new Command();
@@ -101,6 +102,42 @@ program
     const exitCode = failed ? 2 : 0;
     outputJsonSummary(session, exitCode);
     process.exit(exitCode);
+  });
+
+// fwai ota
+program
+  .command("ota")
+  .description("OTA update workflow")
+  .argument("[subcommand]", "bundle|deploy|status|rollback|list", "list")
+  .allowUnknownOption()
+  .action(async (subcommand, _opts, cmd) => {
+    requireWorkspace();
+    const ctx = await buildAppContext();
+    const rawArgs = cmd.args.join(" ");
+    const { handleOTA } = await import("./commands/ota.js");
+    await handleOTA(rawArgs || subcommand || "list", ctx);
+  });
+
+// fwai audit
+program
+  .command("audit")
+  .description("Audit trail: export, verify, summary")
+  .argument("[subcommand]", "export|verify|summary", "summary")
+  .option("--format <format>", "Export format: json|jsonl|csv|sarif|html", "json")
+  .option("--since <date>", "Filter runs from this date")
+  .option("--until <date>", "Filter runs until this date")
+  .option("--output <file>", "Write output to file")
+  .allowUnknownOption()
+  .action(async (subcommand, opts) => {
+    requireWorkspace();
+    const ctx = await buildAppContext();
+    const argParts = [subcommand ?? "summary"];
+    if (opts.format) argParts.push("--format", opts.format);
+    if (opts.since) argParts.push("--since", opts.since);
+    if (opts.until) argParts.push("--until", opts.until);
+    if (opts.output) argParts.push("--output", opts.output);
+    const { handleAudit } = await import("./commands/audit.js");
+    await handleAudit(argParts.join(" "), ctx);
   });
 
 // fwai (default: start REPL)
@@ -207,6 +244,9 @@ async function buildAppContext(
 
   const mode = resolveRunMode(config.mode, cliFlags);
 
+  // Load cached license
+  const license = loadCachedLicense() ?? undefined;
+
   const variables: Record<string, unknown> = {
     project: project.project,
   };
@@ -233,6 +273,7 @@ async function buildAppContext(
     runMode: mode,
     cliFlags,
     confirm,
+    license,
   };
 }
 

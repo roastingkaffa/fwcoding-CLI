@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OTATargetSchema, OTAPolicySchema } from "./ota.schema.js";
 
 export const BootPatternsSchema = z.object({
   success_patterns: z.array(z.string()).default(["System Ready"]),
@@ -31,6 +32,8 @@ export const ToolchainSchema = z.object({
   compiler: z.string().default("arm-none-eabi-gcc"),
   debugger: z.string().optional(),
   flasher: z.string().optional(),
+  openocd_config: z.string().optional(),
+  gdb_remote: z.string().optional(),
 });
 
 export const ProjectSchema = z.object({
@@ -42,6 +45,14 @@ export const ProjectSchema = z.object({
     serial: SerialSchema.default({}),
     boot: BootPatternsSchema.default({}),
     toolchain: ToolchainSchema.default({}),
+    ota: z
+      .object({
+        enabled: z.boolean().default(false),
+        targets: z.array(OTATargetSchema).default([]),
+        bundle_dir: z.string().default(".fwai/ota"),
+        policy: OTAPolicySchema.default({}),
+      })
+      .optional(),
   }),
 });
 

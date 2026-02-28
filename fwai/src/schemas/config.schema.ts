@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LicenseSchema, CloudConfigSchema } from "./license.schema.js";
 
 export const ProviderConfigSchema = z.object({
   name: z.enum(["anthropic", "openai", "gemini", "local"]),
@@ -23,6 +24,16 @@ export const PolicySchema = z.object({
     })
     .default({}),
   require_evidence: z.boolean().default(true),
+  audit_log: z
+    .object({
+      enabled: z.boolean().default(false),
+      path: z.string().default(".fwai/logs/audit.jsonl"),
+      max_size_mb: z.number().positive().default(50),
+    })
+    .optional(),
+  compliance_mode: z
+    .enum(["none", "iso26262", "do178c", "iec62443"])
+    .default("none"),
 });
 
 export const IntentConfigSchema = z.object({
@@ -44,24 +55,6 @@ export const LoggingSchema = z.object({
   color: z.boolean().default(true),
 });
 
-export const KBConfigSchema = z.object({
-  enabled: z.boolean().default(true),
-  max_context_tokens: z.number().int().positive().default(4000),
-  include: z.array(z.string()).default(["**/*.md", "**/*.txt"]),
-  exclude: z.array(z.string()).default([]),
-});
-
-export const MCPServerConfigSchema = z.object({
-  name: z.string(),
-  command: z.string(),
-  args: z.array(z.string()).default([]),
-  env: z.record(z.string()).optional(),
-});
-
-export const MCPConfigSchema = z.object({
-  servers: z.array(MCPServerConfigSchema).default([]),
-});
-
 export const ConfigSchema = z.object({
   version: z.string().default("1.0"),
   provider: ProviderConfigSchema,
@@ -69,8 +62,16 @@ export const ConfigSchema = z.object({
   intent: IntentConfigSchema.default({}),
   mode: ModeSchema.default({}),
   logging: LoggingSchema.default({}),
-  kb: KBConfigSchema.optional(),
-  mcp: MCPConfigSchema.optional(),
+  marketplace: z
+    .object({
+      registry_url: z.string().url().default("https://registry.fwai.dev"),
+      auto_update: z.boolean().default(false),
+      allowed_publishers: z.array(z.string()).default([]),
+    })
+    .optional(),
+  license: LicenseSchema.optional(),
+  cloud: CloudConfigSchema.optional(),
+  plugins: z.array(z.string()).default([]),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

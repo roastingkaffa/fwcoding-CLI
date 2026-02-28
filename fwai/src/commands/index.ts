@@ -9,9 +9,11 @@ import { handleSkills } from "./skills.js";
 import { handleConfig } from "./config.js";
 import { handleDoctor } from "./doctor.js";
 import { handleAgentChat } from "./agent-chat.js";
-import { handleMemory } from "./memory.js";
-import { handleProvider } from "./provider.js";
-import { handleFarm } from "./farm.js";
+import { handleAudit } from "./audit.js";
+import { handleLicense } from "./license.js";
+import { handleMarketplace } from "./marketplace.js";
+import { handleOTA } from "./ota.js";
+import { handleDebug } from "./debug.js";
 import * as log from "../utils/logger.js";
 
 export interface CommandDef {
@@ -31,9 +33,11 @@ export const commands: CommandDef[] = [
   { name: "config", description: "Show current configuration", handler: handleConfig },
   { name: "doctor", description: "Check toolchain & environment health", handler: handleDoctor },
   { name: "agent", description: "Start scoped agent chat (e.g., /agent bsp)", handler: handleAgentChat },
-  { name: "memory", description: "Analyze firmware memory/ROM usage", handler: handleMemory },
-  { name: "provider", description: "Show or switch LLM provider", handler: handleProvider },
-  { name: "farm", description: "Board farm management (list/allocate/release)", handler: handleFarm },
+  { name: "audit", description: "Audit trail: export, verify, summary", handler: handleAudit },
+  { name: "license", description: "License: status, activate, deactivate", handler: handleLicense },
+  { name: "marketplace", description: "Plugin marketplace: search, install, uninstall, list, info", handler: handleMarketplace },
+  { name: "ota", description: "OTA updates: bundle, deploy, status, rollback, list", handler: handleOTA },
+  { name: "debug", description: "GDB/debug: run, registers, backtrace, openocd", handler: handleDebug },
 ];
 
 const commandMap = new Map(commands.map((c) => [c.name, c]));

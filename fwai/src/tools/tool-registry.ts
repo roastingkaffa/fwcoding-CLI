@@ -13,7 +13,7 @@ import { searchGrepTool } from "./search-grep.js";
 import { searchGlobTool } from "./search-glob.js";
 import { bashTool } from "./bash.js";
 import { wrapAllFirmwareTools } from "./firmware-tools.js";
-import { memoryAnalysisTool } from "./memory-analysis.js";
+import { gdbTool } from "./gdb-tool.js";
 
 /** All built-in agentic tools */
 const BUILTIN_TOOLS: AgenticTool[] = [
@@ -23,7 +23,6 @@ const BUILTIN_TOOLS: AgenticTool[] = [
   searchGrepTool,
   searchGlobTool,
   bashTool,
-  memoryAnalysisTool,
 ];
 
 export class ToolRegistry {
@@ -85,12 +84,15 @@ export class ToolRegistry {
     return this.tools.size;
   }
 
-  /** Create a registry with all built-in tools + firmware tools */
-  static createDefault(firmwareTools?: Map<string, ToolDef>): ToolRegistry {
+  /** Create a registry with all built-in tools + firmware tools + optional gdb tool */
+  static createDefault(firmwareTools?: Map<string, ToolDef>, opts?: { enableGdb?: boolean }): ToolRegistry {
     const registry = new ToolRegistry();
     registry.registerAll(BUILTIN_TOOLS);
     if (firmwareTools) {
       registry.registerAll(wrapAllFirmwareTools(firmwareTools));
+    }
+    if (opts?.enableGdb) {
+      registry.register(gdbTool);
     }
     return registry;
   }

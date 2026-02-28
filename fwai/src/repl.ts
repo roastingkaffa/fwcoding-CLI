@@ -6,16 +6,15 @@ import type { ProjectContext } from "./utils/project-context.js";
 import type { LLMProvider, Message } from "./providers/provider.js";
 import type { ToolMessage } from "./providers/tool-types.js";
 import type { RunMode } from "./utils/run-mode.js";
+import type { LicenseStatus } from "./core/license-manager.js";
 import { formatContextBlock } from "./utils/project-context.js";
 import { globalTracer } from "./utils/llm-tracer.js";
-import { routeCommand, commands } from "./commands/index.js";
+import { routeCommand } from "./commands/index.js";
 import { resolveIntent } from "./skills/intent-resolver.js";
 import { loadSkillMap } from "./skills/skill-loader.js";
 import { runSkill } from "./skills/skill-runner.js";
 import { runAgenticLoop } from "./agents/agentic-loop.js";
 import { ToolRegistry } from "./tools/tool-registry.js";
-import { loadKBDocuments, searchKB, formatKBContext } from "./core/kb-loader.js";
-import { startSpinner, updateSpinner, stopSpinner, succeedSpinner, failSpinner } from "./utils/ui.js";
 import * as log from "./utils/logger.js";
 
 export interface AppContext {
@@ -29,6 +28,8 @@ export interface AppContext {
   cliFlags: { ci?: boolean; yes?: boolean; json?: boolean; quiet?: boolean };
   /** Shared confirm function — provided by REPL or CLI */
   confirm: (message: string) => Promise<boolean>;
+  /** License status (loaded from cache or dashboard) */
+  license?: LicenseStatus;
 }
 
 /** Conversation history for multi-turn LLM interaction (supports both text-only and tool-calling) */
@@ -36,21 +37,10 @@ const conversationHistory: ToolMessage[] = [];
 
 /** Start the interactive REPL */
 export async function startRepl(ctx: AppContext): Promise<void> {
-  // Tab completion for /commands
-  const commandNames = commands.map((c) => `/${c.name}`).concat(["/exit", "/quit"]);
-  const completer = (line: string): [string[], string] => {
-    if (line.startsWith("/")) {
-      const hits = commandNames.filter((c) => c.startsWith(line));
-      return [hits.length ? hits : commandNames, line];
-    }
-    return [[], line];
-  };
-
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: "fwai> ",
-    completer,
   });
 
   console.log("");
@@ -185,24 +175,15 @@ async function handleNaturalLanguage(
     return;
   }
 
-  // Build system prompt: project context + KB context + default agent prompt
+  // Build system prompt: project context + default agent prompt
   const contextBlock = formatContextBlock(ctx.projectCtx);
-  let kbBlock = "";
-  if (ctx.config.kb?.enabled !== false) {
-    const kbDocs = loadKBDocuments(process.cwd(), ctx.config.kb);
-    const kbResults = searchKB(input, kbDocs);
-    if (kbResults.length > 0) {
-      kbBlock = "\n\n" + formatKBContext(kbResults, ctx.config.kb?.max_context_tokens);
-    }
-  }
-  const systemPrompt = `${contextBlock}${kbBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical. You have access to tools for reading/writing files, searching code, and running shell commands. Use them when needed.`;
+  const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Help the user with firmware-related questions, debugging, and code analysis. Be concise and technical. You have access to tools for reading/writing files, searching code, and running shell commands. Use them when needed.`;
 
   // New path: agentic loop (tool-calling provider)
   if (ctx.provider.supportsToolCalling()) {
     try {
       const registry = ToolRegistry.createDefault(ctx.tools);
       let streamingStarted = false;
-      startSpinner("Thinking...");
       const result = await runAgenticLoop(input, conversationHistory, {
         provider: ctx.provider,
         registry,
@@ -216,43 +197,32 @@ async function handleNaturalLanguage(
         temperature: ctx.config.provider.temperature,
         onToolCall: (name, toolInput) => {
           if (streamingStarted) { process.stdout.write("\n"); streamingStarted = false; }
-          stopSpinner();
           log.info(`Tool: ${name}(${summarizeInput(toolInput)})`);
-          startSpinner(`Running ${name}...`);
         },
         onToolResult: (name, result, isError) => {
-          stopSpinner();
           if (isError) {
             log.error(`Tool ${name} error: ${result.slice(0, 200)}`);
           } else {
             log.success(`Tool ${name} done (${result.length} chars)`);
           }
-          startSpinner("Thinking...");
         },
         onTextOutput: (text) => {
           // Fallback for non-streaming responses
-          stopSpinner();
           console.log("");
           console.log(text);
           console.log("");
         },
         onTextDelta: (delta) => {
-          if (!streamingStarted) {
-            stopSpinner();
-            process.stdout.write("\n");
-            streamingStarted = true;
-          }
+          if (!streamingStarted) { process.stdout.write("\n"); streamingStarted = true; }
           process.stdout.write(delta);
         },
       });
-      stopSpinner();
       if (streamingStarted) { process.stdout.write("\n\n"); }
 
       // Update conversation history with the full agentic conversation
       conversationHistory.length = 0;
       conversationHistory.push(...result.messages);
     } catch (err) {
-      stopSpinner();
       log.error(`Agentic loop failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     return;
@@ -262,7 +232,6 @@ async function handleNaturalLanguage(
   conversationHistory.push({ role: "user", content: input });
 
   const timer = globalTracer.startCall("free_chat");
-  startSpinner("Thinking...");
   try {
     const response = await ctx.provider.complete({
       messages: conversationHistory.map((m) => ({
@@ -275,7 +244,6 @@ async function handleNaturalLanguage(
     });
 
     timer.finish(response.usage.input_tokens, response.usage.output_tokens);
-    stopSpinner();
 
     // Add assistant response to history
     conversationHistory.push({ role: "assistant", content: response.content });
@@ -286,7 +254,6 @@ async function handleNaturalLanguage(
     console.log("");
   } catch (err) {
     timer.finish(0, 0, { error: String(err) });
-    stopSpinner();
     log.error(`LLM call failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }

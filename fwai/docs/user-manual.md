@@ -1,257 +1,140 @@
 # fwai User Manual
 
-> Firmware AI CLI — AI-assisted firmware development with safety guardrails and evidence traceability.
+## Commercial Features (Phase 4)
 
-## Getting Started
+### Plugin Marketplace
 
-### Installation
-
-```bash
-npm install -g fwai
-```
-
-### Initialize a Project
+Discover and install community-built tools, skills, and agents.
 
 ```bash
-cd your-firmware-project
-fwai init
+# Search for plugins
+fwai> /marketplace search stm32
+
+# Install a plugin
+fwai> /marketplace install stm32-bsp-tools
+
+# List installed plugins
+fwai> /marketplace list
+
+# Remove a plugin
+fwai> /marketplace uninstall stm32-bsp-tools
+
+# Get plugin details
+fwai> /marketplace info stm32-bsp-tools
 ```
 
-This creates a `.fwai/` directory with default configuration files:
-- `config.yaml` — LLM provider, policy, logging settings
-- `project.yaml` — MCU target, build system, serial port
-- `tools/` — Build, flash, monitor tool definitions
-- `skills/` — Bringup, build-fix, diagnose workflows
-- `agents/` — BSP, driver, RTOS, release agent configs
+Plugins are stored in `.fwai/plugins/<name>/` and can contain `tools/`, `skills/`, and `agents/` directories.
 
-### Start the REPL
+### Team License & Cloud Dashboard
+
+Activate a license to unlock commercial features.
 
 ```bash
-fwai
+# Check license status
+fwai> /license status
+
+# Activate a license key
+fwai> /license activate FWAI-XXXX-XXXX-XXXX
+
+# Deactivate license
+fwai> /license deactivate
 ```
 
-## REPL Commands
+Feature tiers: `community` (free), `pro` (plugins + GDB), `team` (audit + OTA + cloud sync), `enterprise` (all).
 
-| Command | Description |
-|---------|-------------|
-| `/help` | List all commands |
-| `/build` | Execute build tool, collect build.log |
-| `/flash` | Flash firmware to target (with confirmation) |
-| `/monitor` | Capture UART output to uart.log |
-| `/evidence` | List recent runs or show run details |
-| `/agents` | List configured agents |
-| `/skills` | List available skills |
-| `/config` | Show current configuration |
-| `/doctor` | Check toolchain & environment health |
-| `/agent <name>` | Start scoped agent chat (e.g., `/agent bsp`) |
-| `/memory [elf]` | Analyze firmware memory/ROM usage |
-| `/provider [name]` | Show or switch LLM provider |
-| `/farm list\|allocate\|release` | Board farm management |
-| `/exit` | Exit REPL |
+### Audit Trail / Compliance Export
 
-Type natural language to interact with the AI assistant directly.
+Export run evidence for compliance (ISO 26262, DO-178C, IEC 62443).
 
-### Tab Completion
+```bash
+# Show audit summary
+fwai> /audit summary
 
-Press `Tab` after typing `/` to see and auto-complete available commands. For example, typing `/bu` then `Tab` completes to `/build`.
+# Export as JSON
+fwai> /audit export --format json --output report.json
 
-### Spinner Feedback
+# Export as SARIF (for CI integration)
+fwai audit export --format sarif --output report.sarif
 
-During LLM calls and tool execution, a spinner is displayed to indicate progress. The spinner automatically pauses when log output is written and clears before streaming text begins. Spinners are disabled automatically in non-TTY environments (CI).
+# Export as CSV
+fwai> /audit export --format csv --since 2026-01-01
 
-## Agentic Mode
+# Export as HTML report
+fwai> /audit export --format html --output report.html
 
-### What is Agentic Mode?
-
-fwai supports an agentic loop where the LLM can autonomously call tools (read files, write files, run commands, search code) to accomplish tasks. The loop continues until the LLM decides it's done or hits the iteration limit.
-
-### Using /agent
-
-Start a scoped agent chat:
-
-```
-fwai> /agent bsp
+# Verify chain hash integrity
+fwai> /audit verify <hash>
 ```
 
-This launches the BSP agent with:
-- **Scoped paths**: Only files in `src/bsp/**`, `src/hal/**`, etc.
-- **Scoped tools**: Only the tools listed in the agent config
-- **Custom system prompt**: Agent-specific expertise and rules
-- **Protected paths**: Files the agent cannot modify
+### OTA Update Workflow
 
-### Built-in Agentic Tools
+Build, deploy, and rollback firmware OTA bundles.
 
-| Tool | Description |
-|------|-------------|
-| `read_file` | Read file contents with optional line range |
-| `write_file` | Create or overwrite a file |
-| `edit_file` | Replace exact text in a file |
-| `bash` | Execute shell commands |
-| `grep` | Search file contents with regex |
-| `glob` | Find files by pattern |
-| `memory_analysis` | Analyze ELF binary memory usage |
+```bash
+# Create an OTA bundle
+fwai> /ota bundle --version 1.2.0 --elf build/firmware.elf
 
-## Agentic Skills
+# List available bundles
+fwai> /ota list
 
-Skills can mix fixed steps (deterministic tool execution) with agentic steps (LLM-driven autonomous execution).
+# Deploy to a specific target
+fwai> /ota deploy --target device-001
 
-### Example: Smart Bringup
+# Deploy to all configured targets
+fwai> /ota deploy --all
+
+# View deployment history
+fwai> /ota status
+
+# Rollback a device
+fwai> /ota rollback device-001 1.1.0
+```
+
+Configure targets in `project.yaml`:
 
 ```yaml
-name: smart-bringup
-steps:
-  - tool: build              # Fixed: run build
-    on_fail: continue
-  - action: agentic           # Agentic: AI analyzes & fixes errors
-    goal: "Read build log, fix errors, rebuild"
-    agent: bsp
-    max_iterations: 10
-  - tool: flash               # Fixed: flash firmware
-    on_fail: abort
-  - tool: monitor             # Fixed: monitor boot
-  - action: evidence          # Fixed: generate evidence
-    summary: true
+project:
+  ota:
+    enabled: true
+    bundle_dir: .fwai/ota
+    targets:
+      - device_id: device-001
+        transport: serial
+        endpoint: /dev/ttyUSB0
+      - device_id: device-002
+        transport: network
+        endpoint: http://192.168.1.100/ota
+    policy:
+      require_checksum: true
+      confirm: true
 ```
 
-## Tool-Calling
+### GDB/Debug Integration
 
-When the LLM provider supports tool-calling (e.g., Anthropic Claude), fwai uses structured tool invocations instead of text-based commands. The agentic loop:
+Debug firmware with GDB from the REPL or let the AI agent debug autonomously.
 
-1. Sends user message + tool definitions to LLM
-2. LLM responds with `tool_use` blocks
-3. fwai executes each tool
-4. Results are sent back to LLM
-5. Repeat until LLM sends `end_turn`
+```bash
+# Run GDB commands on an ELF
+fwai> /debug run build/firmware.elf "break main" "run" "info registers"
 
-All tool calls are tracked in evidence for auditability.
+# Dump registers
+fwai> /debug registers build/firmware.elf
 
-## Memory Analysis (/memory)
+# Get backtrace
+fwai> /debug backtrace build/firmware.elf
 
-Analyze firmware Flash and RAM usage:
-
-```
-fwai> /memory build/firmware.elf
+# Start OpenOCD server
+fwai> /debug openocd
 ```
 
-Output:
-```
-┌──────────┬────────────┬────────────┬─────────┐
-│ Region   │ Used       │ Total      │ Usage   │
-├──────────┼────────────┼────────────┼─────────┤
-│ Flash    │ 25.0 KB    │ 512.0 KB   │   4.9%  │
-│ RAM      │ 3.0 KB     │ 128.0 KB   │   2.3%  │
-└──────────┴────────────┴────────────┴─────────┘
-```
-
-Requires `arm-none-eabi-size` in PATH. Reads `flash_size` and `ram_size` from `project.yaml`.
-
-## Provider Switching (/provider)
-
-Hot-switch between LLM providers without restarting:
-
-```
-fwai> /provider                    # Show current status
-fwai> /provider anthropic          # Switch to Anthropic (default model)
-fwai> /provider openai gpt-4o      # Switch to OpenAI with specific model
-```
-
-Supported providers: `anthropic`, `openai`, `gemini`, `local`
-
-## Knowledge Base
-
-Place `.md` or `.txt` files in `.fwai/kb/` to provide project-specific context to the AI:
-
-```
-.fwai/kb/
-├── stm32f4-notes.md
-├── coding-standards.md
-└── hardware-quirks.txt
-```
-
-When you ask a question, fwai searches the KB by keywords and injects relevant documents into the system prompt. This gives the AI access to project-specific knowledge without embeddings or external services.
-
-### Configuration
+Configure in `project.yaml`:
 
 ```yaml
-# .fwai/config.yaml
-kb:
-  enabled: true
-  max_context_tokens: 4000
-  include: ["**/*.md", "**/*.txt"]
-  exclude: ["drafts/**"]
+project:
+  toolchain:
+    debugger: arm-none-eabi-gdb
+    openocd_config: board/stm32f4discovery.cfg
+    gdb_remote: localhost:3333
 ```
 
-## Board Farm
-
-The board farm feature provides an interface for managing remote hardware boards:
-
-```
-fwai> /farm list               # List available boards
-fwai> /farm allocate board-01  # Allocate a board
-fwai> /farm release board-01   # Release a board
-```
-
-> **Note**: Board farm is currently a stub implementation. Configure `board_farm` in `config.yaml` when a farm backend is available.
-
-## Evidence System
-
-Every skill run produces an `evidence.json` file with:
-- Tool results (exit codes, logs, durations)
-- LLM call records (tokens, cost, timing)
-- Hardware state (serial port, debugger)
-- Boot status (patterns matched, boot time)
-- Change tracking (files changed, diff)
-- Memory analysis (if `/memory` was used)
-- Agentic session (tool calls, iterations, files read/written)
-
-View evidence:
-```
-fwai> /evidence           # List recent runs
-fwai> /evidence <run-id>  # Show specific run details
-```
-
-## Policy Engine
-
-Safety guardrails protect your firmware:
-
-- **Protected paths**: Files matching patterns (e.g., `boot/**`, `*.ld`) cannot be modified
-- **Change budget**: Maximum files and lines that can change per run
-- **Flash guard**: Requires successful build before flashing
-- **Confirmation**: Destructive operations require explicit approval
-
-## CI/CD Integration
-
-See [CI/CD Guide](cicd-guide.md) for GitHub Actions and GitLab CI examples.
-
-```bash
-# Run a skill in CI mode
-fwai run bringup --ci --yes --json
-
-# Exit codes:
-# 0 = success
-# 1 = tool failure
-# 3 = flash guard / confirmation required
-# 4 = change budget exceeded
-```
-
-## VS Code Extension
-
-The `vscode-fwai` extension brings fwai features into VS Code.
-
-### Install
-
-```bash
-cd vscode-fwai && npm install && npm run build
-# Then press F5 to launch Extension Development Host
-```
-
-### Features
-
-- **Sidebar views**: Evidence runs, Skills, Agents, and Tools in the activity bar
-- **Agent Chat panel**: Interactive LLM chat with streaming and tool-call indicators
-- **Command Palette**: All 13 commands available via `Ctrl+Shift+P` → "FWAI:"
-- **Status bar**: Project name, MCU, and active LLM provider
-- **Task integration**: Skills auto-detected as VS Code tasks with GCC problem matcher
-- **Diagnostics**: Build errors appear in the Problems panel after `FWAI: Build`
-- **Evidence detail**: Click a run to see full tool results, boot status, and changes
-- **Memory analysis**: Bar-chart visualization of Flash/RAM usage
+The `gdb_debug` agentic tool is also available to the LLM, enabling autonomous debugging with breakpoints, register inspection, and memory reads.
