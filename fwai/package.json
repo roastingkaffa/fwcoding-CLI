@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "deploy": "tsc && cp -r src/* /home/ateam/workspace/fwcoding/fwai/src/ && cp -r dist/* /home/ateam/workspace/fwcoding/fwai/dist/ && echo '✓ Deployed to global fwai'",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "lint": "npx tsc --noEmit && eslint src/",
