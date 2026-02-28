@@ -6,7 +6,7 @@ import type { AppContext } from "../repl.js";
 import { StubBoardFarmClient } from "../core/board-farm.js";
 import * as log from "../utils/logger.js";
 
-export async function handleFarm(args: string, ctx: AppContext): Promise<void> {
+export async function handleFarm(args: string, _ctx: AppContext): Promise<void> {
   const parts = args.trim().split(/\s+/).filter(Boolean);
   const subcommand = parts[0] ?? "list";
   const client = new StubBoardFarmClient();

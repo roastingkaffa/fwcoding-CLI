@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
-import type { ToolDef, StopCondition } from "../schemas/tool.schema.js";
+import type { ToolDef } from "../schemas/tool.schema.js";
 import type { ToolResult, BootStatus } from "../schemas/evidence.schema.js";
 import type { BootPatterns } from "../schemas/project.schema.js";
 import { interpolate } from "../utils/interpolate.js";
@@ -25,10 +25,7 @@ export interface RunResult {
 }
 
 /** Execute a tool command, capture output to log file, return result */
-export async function runTool(
-  tool: ToolDef,
-  ctx: RunContext
-): Promise<RunResult> {
+export async function runTool(tool: ToolDef, ctx: RunContext): Promise<RunResult> {
   // Merge tool-level variables → ctx variables → add built-in run_dir
   const mergedVars: Record<string, unknown> = {
     ...ctx.variables,
@@ -137,9 +134,7 @@ export async function runTool(
           toolResult: {
             tool: tool.name,
             command,
-            exit_code: killedByPattern
-              ? (bootStatus?.status === "success" ? 0 : 1)
-              : exitCode,
+            exit_code: killedByPattern ? (bootStatus?.status === "success" ? 0 : 1) : exitCode,
             duration_ms: durationMs,
             log_file: `${tool.name}.log`,
             status,
@@ -161,16 +156,22 @@ function buildPatternSets(
   const failurePatterns: RegExp[] = [];
 
   // Check stop_conditions for boot_patterns
-  const hasBootPatternCondition = tool.stop_conditions?.some(
-    (sc) => sc.type === "boot_patterns"
-  );
+  const hasBootPatternCondition = tool.stop_conditions?.some((sc) => sc.type === "boot_patterns");
 
   if (hasBootPatternCondition && bootPatterns) {
     for (const p of bootPatterns.success_patterns) {
-      try { successPatterns.push(new RegExp(p)); } catch { /* skip invalid */ }
+      try {
+        successPatterns.push(new RegExp(p));
+      } catch {
+        /* skip invalid */
+      }
     }
     for (const p of bootPatterns.failure_patterns) {
-      try { failurePatterns.push(new RegExp(p)); } catch { /* skip invalid */ }
+      try {
+        failurePatterns.push(new RegExp(p));
+      } catch {
+        /* skip invalid */
+      }
     }
   }
 
@@ -178,7 +179,11 @@ function buildPatternSets(
   if (tool.stop_conditions) {
     for (const sc of tool.stop_conditions) {
       if (sc.type === "match") {
-        try { successPatterns.push(new RegExp(sc.pattern)); } catch { /* skip */ }
+        try {
+          successPatterns.push(new RegExp(sc.pattern));
+        } catch {
+          /* skip */
+        }
       }
     }
   }
@@ -254,15 +259,14 @@ function matchPostExitPatterns(
   return matchPatterns(content, patterns);
 }
 
-function matchPatterns(
-  content: string,
-  patterns?: string[]
-): string | undefined {
+function matchPatterns(content: string, patterns?: string[]): string | undefined {
   if (!patterns) return undefined;
   for (const pattern of patterns) {
     try {
       if (new RegExp(pattern).test(content)) return pattern;
-    } catch { /* skip invalid regex */ }
+    } catch {
+      /* skip invalid regex */
+    }
   }
   return undefined;
 }

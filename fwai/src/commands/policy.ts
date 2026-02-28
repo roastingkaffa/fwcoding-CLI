@@ -1,5 +1,5 @@
 import type { AppContext } from "../repl.js";
-import { loadOrgPolicy, mergePolicy, validateRunAgainstPolicy } from "../core/org-policy.js";
+import { loadOrgPolicy, mergePolicy } from "../core/org-policy.js";
 import * as log from "../utils/logger.js";
 
 export async function handlePolicy(args: string, ctx: AppContext): Promise<void> {
@@ -21,7 +21,10 @@ export async function handlePolicy(args: string, ctx: AppContext): Promise<void>
     }
     case "validate": {
       const orgPolicy = ctx.orgPolicy ?? loadOrgPolicy(ctx.config, process.cwd());
-      if (!orgPolicy) { log.info("No org policy configured"); return; }
+      if (!orgPolicy) {
+        log.info("No org policy configured");
+        return;
+      }
       const merged = mergePolicy(ctx.config.policy, orgPolicy);
       // Validate current config against requirements
       const issues: string[] = [];
@@ -31,8 +34,13 @@ export async function handlePolicy(args: string, ctx: AppContext): Promise<void>
       if (orgPolicy.required_sbom && !merged.require_sbom) {
         issues.push("SBOM required by org policy");
       }
-      if (orgPolicy.required_compliance_mode && merged.compliance_mode !== orgPolicy.required_compliance_mode) {
-        issues.push(`Compliance mode must be '${orgPolicy.required_compliance_mode}', got '${merged.compliance_mode}'`);
+      if (
+        orgPolicy.required_compliance_mode &&
+        merged.compliance_mode !== orgPolicy.required_compliance_mode
+      ) {
+        issues.push(
+          `Compliance mode must be '${orgPolicy.required_compliance_mode}', got '${merged.compliance_mode}'`
+        );
       }
       if (issues.length === 0) log.success("Config passes org policy validation");
       else for (const issue of issues) log.warn(`  ${issue}`);
@@ -50,7 +58,10 @@ export async function handlePolicy(args: string, ctx: AppContext): Promise<void>
     }
     case "diff": {
       const orgPolicy = ctx.orgPolicy ?? loadOrgPolicy(ctx.config, process.cwd());
-      if (!orgPolicy) { log.info("No org policy configured"); return; }
+      if (!orgPolicy) {
+        log.info("No org policy configured");
+        return;
+      }
       log.heading("Org Policy Overrides");
       const ov = orgPolicy.overrides;
       if (Object.keys(ov).length === 0) {
@@ -58,8 +69,10 @@ export async function handlePolicy(args: string, ctx: AppContext): Promise<void>
       } else {
         log.info(JSON.stringify(ov, null, 2));
       }
-      if (orgPolicy.blocked_tools.length > 0) log.info(`Blocked tools: ${orgPolicy.blocked_tools.join(", ")}`);
-      if (orgPolicy.allowed_tools.length > 0) log.info(`Allowed tools: ${orgPolicy.allowed_tools.join(", ")}`);
+      if (orgPolicy.blocked_tools.length > 0)
+        log.info(`Blocked tools: ${orgPolicy.blocked_tools.join(", ")}`);
+      if (orgPolicy.allowed_tools.length > 0)
+        log.info(`Allowed tools: ${orgPolicy.allowed_tools.join(", ")}`);
       break;
     }
     default:

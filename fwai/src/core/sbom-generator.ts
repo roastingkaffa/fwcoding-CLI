@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import type { Project } from "../schemas/project.schema.js";
 
 export interface CycloneDXComponent {
@@ -40,7 +39,9 @@ export function generateSBOM(project: Project, cwd: string): CycloneDXBOM {
           purl: `pkg:npm/${name}@${String(version).replace(/^[\^~>=<]/, "")}`,
         });
       }
-    } catch { /* skip malformed package.json */ }
+    } catch {
+      /* skip malformed package.json */
+    }
   }
 
   // 2. Project dependencies from project.yaml
@@ -50,7 +51,9 @@ export function generateSBOM(project: Project, cwd: string): CycloneDXBOM {
         type: dep.type === "rtos" ? "framework" : "library",
         name: dep.name,
         version: dep.version,
-        purl: dep.source ? `pkg:generic/${dep.name}@${dep.version}?source=${encodeURIComponent(dep.source)}` : undefined,
+        purl: dep.source
+          ? `pkg:generic/${dep.name}@${dep.version}?source=${encodeURIComponent(dep.source)}`
+          : undefined,
       });
     }
   }
@@ -69,7 +72,9 @@ export function generateSBOM(project: Project, cwd: string): CycloneDXBOM {
           });
         }
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   return {

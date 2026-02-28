@@ -18,6 +18,10 @@ jobs:
         working-directory: fwai
       - run: npx tsc --noEmit
         working-directory: fwai
+      - run: npx eslint src/
+        working-directory: fwai
+      - run: npx prettier --check 'src/**/*.ts'
+        working-directory: fwai
 
   test:
     runs-on: ubuntu-latest

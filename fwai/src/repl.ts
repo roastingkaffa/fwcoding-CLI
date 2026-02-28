@@ -3,7 +3,7 @@ import type { Config } from "./schemas/config.schema.js";
 import type { Project } from "./schemas/project.schema.js";
 import type { ToolDef } from "./schemas/tool.schema.js";
 import type { ProjectContext } from "./utils/project-context.js";
-import type { LLMProvider, Message } from "./providers/provider.js";
+import type { LLMProvider } from "./providers/provider.js";
 import type { ToolMessage } from "./providers/tool-types.js";
 import type { RunMode } from "./utils/run-mode.js";
 import type { LicenseStatus } from "./core/license-manager.js";
@@ -54,7 +54,7 @@ export async function startRepl(ctx: AppContext): Promise<void> {
   } else {
     log.warn("LLM not configured. Tool commands still work. Set API key or run /config.");
   }
-  console.log('  Type /help for commands, or natural language to interact.\n');
+  console.log("  Type /help for commands, or natural language to interact.\n");
 
   // Queue-based confirm: when a handler needs confirmation, it pulls the next
   // line from the queue instead of using rl.question (avoids piped stdin issues)
@@ -132,17 +132,16 @@ export async function startRepl(ctx: AppContext): Promise<void> {
   rl.on("close", async () => {
     // Wait for any in-flight command to finish
     if (processing) {
-      await new Promise<void>((resolve) => { drainDone = resolve; });
+      await new Promise<void>((resolve) => {
+        drainDone = resolve;
+      });
     }
     console.log("\nGoodbye!");
     process.exit(0);
   });
 }
 
-async function handleNaturalLanguage(
-  input: string,
-  ctx: AppContext
-): Promise<void> {
+async function handleNaturalLanguage(input: string, ctx: AppContext): Promise<void> {
   // Try intent resolution (Tier 1: exact, Tier 2: keyword, Tier 3: LLM)
   const skills = loadSkillMap();
   const intent = await resolveIntent(input, skills, ctx.config.intent, ctx.provider);
@@ -153,14 +152,18 @@ async function handleNaturalLanguage(
 
     if (intent.confidence >= threshold) {
       // High confidence → auto-execute skill
-      log.info(`Matched skill: ${intent.skill} (confidence: ${intent.confidence.toFixed(2)}, source: ${intent.source})`);
+      log.info(
+        `Matched skill: ${intent.skill} (confidence: ${intent.confidence.toFixed(2)}, source: ${intent.source})`
+      );
       await executeSkillFromRepl(intent.skill, skills, ctx);
       return;
     }
 
     if (intent.confidence >= askThreshold) {
       // Medium confidence → ask user to confirm
-      log.info(`Possible skill match: ${intent.skill} (confidence: ${intent.confidence.toFixed(2)})`);
+      log.info(
+        `Possible skill match: ${intent.skill} (confidence: ${intent.confidence.toFixed(2)})`
+      );
       const confirmed = await ctx.confirm(`Did you mean: run '${intent.skill}' skill? (y/N) `);
       if (confirmed) {
         await executeSkillFromRepl(intent.skill, skills, ctx);
@@ -199,7 +202,10 @@ async function handleNaturalLanguage(
         maxTokens: ctx.config.provider.max_tokens,
         temperature: ctx.config.provider.temperature,
         onToolCall: (name, toolInput) => {
-          if (streamingStarted) { process.stdout.write("\n"); streamingStarted = false; }
+          if (streamingStarted) {
+            process.stdout.write("\n");
+            streamingStarted = false;
+          }
           log.info(`Tool: ${name}(${summarizeInput(toolInput)})`);
         },
         onToolResult: (name, result, isError) => {
@@ -216,11 +222,16 @@ async function handleNaturalLanguage(
           console.log("");
         },
         onTextDelta: (delta) => {
-          if (!streamingStarted) { process.stdout.write("\n"); streamingStarted = true; }
+          if (!streamingStarted) {
+            process.stdout.write("\n");
+            streamingStarted = true;
+          }
           process.stdout.write(delta);
         },
       });
-      if (streamingStarted) { process.stdout.write("\n\n"); }
+      if (streamingStarted) {
+        process.stdout.write("\n\n");
+      }
 
       // Update conversation history with the full agentic conversation
       conversationHistory.length = 0;

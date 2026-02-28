@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { SkillConfig, SkillStep } from "../schemas/skill.schema.js";
+import type { SkillConfig } from "../schemas/skill.schema.js";
 import type { ToolDef } from "../schemas/tool.schema.js";
 import type { ProjectContext } from "../utils/project-context.js";
 import type { BootPatterns } from "../schemas/project.schema.js";
@@ -8,7 +8,12 @@ import type { Policy } from "../schemas/config.schema.js";
 import type { LLMProvider } from "../providers/provider.js";
 import type { RunMode } from "../utils/run-mode.js";
 import { runTool, type RunContext } from "../core/runner.js";
-import { createRunSession, writeEvidence, buildHardwareState, type RunSession } from "../core/evidence.js";
+import {
+  createRunSession,
+  writeEvidence,
+  buildHardwareState,
+  type RunSession,
+} from "../core/evidence.js";
 import { checkChangeBudget, displayBudgetResult } from "../core/policy.js";
 import { formatContextBlock } from "../utils/project-context.js";
 import { globalTracer } from "../utils/llm-tracer.js";
@@ -16,7 +21,7 @@ import { runAgenticLoop } from "../agents/agentic-loop.js";
 import { getAgent } from "../agents/agent-loader.js";
 import { createAgentLoopConfig } from "../agents/agent-runtime.js";
 import { ToolRegistry } from "../tools/tool-registry.js";
-import { startSpinner, stopSpinner, succeedSpinner, failSpinner } from "../utils/ui.js";
+import { startSpinner, succeedSpinner, failSpinner } from "../utils/ui.js";
 import * as log from "../utils/logger.js";
 
 export interface SkillRunnerDeps {
@@ -28,7 +33,10 @@ export interface SkillRunnerDeps {
   runMode?: RunMode;
   cliFlags?: { ci?: boolean; yes?: boolean; json?: boolean; quiet?: boolean };
   confirm?: (message: string) => Promise<boolean>;
-  hardwareProject?: { serial: { port: string }; toolchain: { debugger?: string; flasher?: string } };
+  hardwareProject?: {
+    serial: { port: string };
+    toolchain: { debugger?: string; flasher?: string };
+  };
   policy?: Policy;
   provider?: LLMProvider | null;
 }
@@ -51,10 +59,7 @@ function interpolate(template: string, vars: Record<string, unknown>): string {
 }
 
 /** Execute a skill's steps sequentially */
-export async function runSkill(
-  skill: SkillConfig,
-  deps: SkillRunnerDeps
-): Promise<RunSession> {
+export async function runSkill(skill: SkillConfig, deps: SkillRunnerDeps): Promise<RunSession> {
   log.heading(`Running skill: ${skill.name}`);
   const session = createRunSession(skill.name, skill.name, deps.cwd);
 
@@ -153,9 +158,7 @@ async function handleLLMAnalyze(
   const prompt = interpolate(step.prompt, vars);
 
   // Resolve input path (relative to cwd or absolute)
-  const resolvedPath = path.isAbsolute(inputPath)
-    ? inputPath
-    : path.join(deps.cwd, inputPath);
+  const resolvedPath = path.isAbsolute(inputPath) ? inputPath : path.join(deps.cwd, inputPath);
 
   // Read input file
   let fileContent = "";
@@ -213,7 +216,13 @@ async function handleLLMAnalyze(
 
 /** Handle agentic step: LLM-driven autonomous execution */
 async function handleAgenticStep(
-  step: { action: "agentic"; goal: string; agent?: string; max_iterations?: number; tools?: string[] },
+  step: {
+    action: "agentic";
+    goal: string;
+    agent?: string;
+    max_iterations?: number;
+    tools?: string[];
+  },
   deps: SkillRunnerDeps
 ): Promise<void> {
   if (!deps.provider?.isReady()) {
@@ -246,12 +255,16 @@ async function handleAgenticStep(
       firmwareTools: deps.tools,
       policy: deps.policy,
       cwd: deps.cwd,
-      onToolCall: (name, input) => log.info(`  Tool: ${name}`),
+      onToolCall: (name, _input) => log.info(`  Tool: ${name}`),
       onToolResult: (name, _result, isError) => {
         if (isError) log.error(`  Tool ${name} failed`);
         else log.success(`  Tool ${name} done`);
       },
-      onTextOutput: (text) => { console.log(""); console.log(text); console.log(""); },
+      onTextOutput: (text) => {
+        console.log("");
+        console.log(text);
+        console.log("");
+      },
     });
 
     await runAgenticLoop(step.goal, [], loopConfig);
@@ -260,9 +273,7 @@ async function handleAgenticStep(
 
   // No agent specified — use default tools with optional tool filtering
   const fullRegistry = ToolRegistry.createDefault(deps.tools);
-  const registry = step.tools
-    ? fullRegistry.createScoped(step.tools)
-    : fullRegistry;
+  const registry = step.tools ? fullRegistry.createScoped(step.tools) : fullRegistry;
 
   const contextBlock = formatContextBlock(deps.projectCtx);
   const systemPrompt = `${contextBlock}\n\nYou are a firmware development assistant. Complete the following goal using the available tools. Be precise and minimal in your changes.`;
@@ -276,12 +287,16 @@ async function handleAgenticStep(
       protectedPaths: deps.policy?.protected_paths,
     },
     maxIterations: step.max_iterations,
-    onToolCall: (name, input) => log.info(`  Tool: ${name}`),
+    onToolCall: (name, _input) => log.info(`  Tool: ${name}`),
     onToolResult: (name, _result, isError) => {
       if (isError) log.error(`  Tool ${name} failed`);
       else log.success(`  Tool ${name} done`);
     },
-    onTextOutput: (text) => { console.log(""); console.log(text); console.log(""); },
+    onTextOutput: (text) => {
+      console.log("");
+      console.log(text);
+      console.log("");
+    },
   });
 }
 
@@ -301,7 +316,9 @@ function printEvidenceSummary(evidence: {
   if (evidence.boot_status) {
     const bs = evidence.boot_status;
     const bootInfo = bs.boot_time_ms ? ` (${bs.boot_time_ms}ms)` : "";
-    log.info(`Boot: ${bs.status}${bootInfo}${bs.matched_pattern ? ` — "${bs.matched_pattern}"` : ""}`);
+    log.info(
+      `Boot: ${bs.status}${bootInfo}${bs.matched_pattern ? ` — "${bs.matched_pattern}"` : ""}`
+    );
   }
 
   if (evidence.llm) {

@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execSync } from "node:child_process";
-import * as log from "../utils/logger.js";
 
 export interface GDBFrame {
   level: number;
@@ -56,21 +55,22 @@ export function runGDBBatch(options: GDBBatchOptions): GDBBatchResult {
   let exitCode = 0;
 
   try {
-    output = execSync(
-      `"${gdbBinary}" --batch --nx --command="${scriptPath}" "${elfPath}"`,
-      {
-        stdio: ["pipe", "pipe", "pipe"],
-        timeout: timeoutSec * 1000,
-        cwd,
-        encoding: "utf-8",
-      }
-    );
+    output = execSync(`"${gdbBinary}" --batch --nx --command="${scriptPath}" "${elfPath}"`, {
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: timeoutSec * 1000,
+      cwd,
+      encoding: "utf-8",
+    });
   } catch (err: unknown) {
     const execErr = err as { stdout?: string; stderr?: string; status?: number };
     output = (execErr.stdout ?? "") + "\n" + (execErr.stderr ?? "");
     exitCode = execErr.status ?? 1;
   } finally {
-    try { fs.unlinkSync(scriptPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(scriptPath);
+    } catch {
+      /* ignore */
+    }
   }
 
   const duration_ms = Date.now() - start;
