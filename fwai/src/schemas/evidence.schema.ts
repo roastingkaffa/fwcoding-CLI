@@ -115,6 +115,25 @@ export const DebugEvidenceSchema = z.object({
   duration_ms: z.number(),
 });
 
+export const EvidenceSignatureSchema = z.object({
+  algorithm: z.literal("ed25519"),
+  public_key: z.string(),
+  signature: z.string(),
+  signed_at: z.string(),
+});
+
+export const EvidenceSBOMSchema = z.object({
+  format: z.literal("cyclonedx"),
+  version: z.string(),
+  components_count: z.number().int(),
+  path: z.string(),
+});
+
+export const EvidenceSecuritySchema = z.object({
+  secrets_redacted: z.number().int(),
+  policy_violations: z.array(z.string()),
+});
+
 export const EvidenceSchema = z.object({
   run_id: z.string(),
   skill: z.string().optional(),
@@ -135,6 +154,9 @@ export const EvidenceSchema = z.object({
   client_version: z.string().optional(),
   ota: OTAEvidenceSchema.optional(),
   debug: DebugEvidenceSchema.optional(),
+  signature: EvidenceSignatureSchema.optional(),
+  sbom: EvidenceSBOMSchema.optional(),
+  security: EvidenceSecuritySchema.optional(),
 });
 
 export type Evidence = z.infer<typeof EvidenceSchema>;
@@ -148,3 +170,6 @@ export type AgenticSession = z.infer<typeof AgenticSessionSchema>;
 export type OTATargetResult = z.infer<typeof OTATargetResultSchema>;
 export type OTAEvidence = z.infer<typeof OTAEvidenceSchema>;
 export type DebugEvidence = z.infer<typeof DebugEvidenceSchema>;
+export type EvidenceSignature = z.infer<typeof EvidenceSignatureSchema>;
+export type EvidenceSBOM = z.infer<typeof EvidenceSBOMSchema>;
+export type EvidenceSecurity = z.infer<typeof EvidenceSecuritySchema>;

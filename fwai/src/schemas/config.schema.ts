@@ -34,6 +34,11 @@ export const PolicySchema = z.object({
   compliance_mode: z
     .enum(["none", "iso26262", "do178c", "iec62443"])
     .default("none"),
+  require_signing: z.boolean().default(false),
+  require_sbom: z.boolean().default(false),
+  allowed_tools: z.array(z.string()).default([]),
+  blocked_tools: z.array(z.string()).default([]),
+  max_llm_cost_per_run: z.number().positive().optional(),
 });
 
 export const IntentConfigSchema = z.object({
@@ -55,6 +60,30 @@ export const LoggingSchema = z.object({
   color: z.boolean().default(true),
 });
 
+export const SecurityConfigSchema = z
+  .object({
+    secret_patterns: z.array(z.string()).default([]),
+    redact_in_evidence: z.boolean().default(true),
+    redact_in_logs: z.boolean().default(true),
+    signing: z
+      .object({
+        enabled: z.boolean().default(false),
+        key_path: z.string().default(".fwai/keys/evidence.key"),
+        algorithm: z.literal("ed25519").default("ed25519"),
+      })
+      .optional(),
+  })
+  .optional();
+
+export const OrgPolicyConfigSchema = z
+  .object({
+    url: z.string().optional(),
+    path: z.string().optional(),
+    enforce: z.boolean().default(true),
+    refresh_interval_sec: z.number().int().positive().default(3600),
+  })
+  .optional();
+
 export const ConfigSchema = z.object({
   version: z.string().default("1.0"),
   provider: ProviderConfigSchema,
@@ -72,6 +101,8 @@ export const ConfigSchema = z.object({
   license: LicenseSchema.optional(),
   cloud: CloudConfigSchema.optional(),
   plugins: z.array(z.string()).default([]),
+  security: SecurityConfigSchema,
+  org_policy: OrgPolicyConfigSchema,
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -80,3 +111,5 @@ export type Policy = z.infer<typeof PolicySchema>;
 export type IntentConfig = z.infer<typeof IntentConfigSchema>;
 export type CIMode = z.infer<typeof CIModeSchema>;
 export type Mode = z.infer<typeof ModeSchema>;
+export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
+export type OrgPolicyConfig = z.infer<typeof OrgPolicyConfigSchema>;

@@ -15,6 +15,7 @@ import { globalTracer } from "./utils/llm-tracer.js";
 import { startRepl, type AppContext } from "./repl.js";
 import type { RunSession } from "./core/evidence.js";
 import { loadCachedLicense } from "./core/license-manager.js";
+import { loadOrgPolicy, mergePolicy } from "./core/org-policy.js";
 import * as log from "./utils/logger.js";
 
 const program = new Command();
@@ -247,6 +248,13 @@ async function buildAppContext(
   // Load cached license
   const license = loadCachedLicense() ?? undefined;
 
+  // Load org policy and merge with project policy
+  const orgPolicy = loadOrgPolicy(config, process.cwd()) ?? undefined;
+  if (orgPolicy) {
+    config.policy = mergePolicy(config.policy, orgPolicy);
+    log.debug(`Org policy loaded: ${orgPolicy.id} v${orgPolicy.version}`);
+  }
+
   const variables: Record<string, unknown> = {
     project: project.project,
   };
@@ -274,6 +282,7 @@ async function buildAppContext(
     cliFlags,
     confirm,
     license,
+    orgPolicy,
   };
 }
 

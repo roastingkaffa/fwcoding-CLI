@@ -216,6 +216,41 @@ export interface MemoryReport {
   ram_percent: number;
 }
 
+// ── Phase 5: Enterprise Types ────────────────────────────────────────
+
+export interface EvidenceSignature {
+  algorithm: "ed25519";
+  public_key: string;
+  signature: string;
+  signed_at: string;
+}
+
+export interface OrgPolicy {
+  id: string;
+  version: string;
+  inherits?: string;
+  overrides: Record<string, unknown>;
+  required_signing: boolean;
+  required_sbom: boolean;
+  max_llm_cost_per_run?: number;
+  blocked_providers: string[];
+  allowed_tools: string[];
+  blocked_tools: string[];
+}
+
+export interface SBOMSummary {
+  format: "cyclonedx";
+  version: string;
+  components_count: number;
+  path: string;
+}
+
+export interface SecurityScanResult {
+  clean: string;
+  redactedCount: number;
+  locations: Array<{ line: number; pattern: string }>;
+}
+
 // ── Agentic Loop ────────────────────────────────────────────────────
 
 export interface AgenticLoopConfig {

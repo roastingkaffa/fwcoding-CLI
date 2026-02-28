@@ -14,6 +14,8 @@ import { handleLicense } from "./license.js";
 import { handleMarketplace } from "./marketplace.js";
 import { handleOTA } from "./ota.js";
 import { handleDebug } from "./debug.js";
+import { handleSecurity } from "./security.js";
+import { handlePolicy } from "./policy.js";
 import * as log from "../utils/logger.js";
 
 export interface CommandDef {
@@ -38,6 +40,8 @@ export const commands: CommandDef[] = [
   { name: "marketplace", description: "Plugin marketplace: search, install, uninstall, list, info", handler: handleMarketplace },
   { name: "ota", description: "OTA updates: bundle, deploy, status, rollback, list", handler: handleOTA },
   { name: "debug", description: "GDB/debug: run, registers, backtrace, openocd", handler: handleDebug },
+  { name: "security", description: "Security: keygen, verify, scan, audit-deps", handler: handleSecurity },
+  { name: "policy", description: "Org policy: show, validate, refresh, diff", handler: handlePolicy },
 ];
 
 const commandMap = new Map(commands.map((c) => [c.name, c]));

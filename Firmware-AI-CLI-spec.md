@@ -1472,6 +1472,16 @@ CI Timeout 支援：
 - [x] OTA update workflow
 - [x] GDB/debug integration
 
+### Phase 5 — Enterprise Hardening & CI/CD
+
+- [x] Security hardening: secret scanning, redaction in evidence & logs
+- [x] Supply chain verification: plugin integrity, npm audit, toolchain binary hashing
+- [x] Signed evidence: Ed25519 key generation, sign/verify evidence records
+- [x] SBOM generation: CycloneDX 1.5 with npm + firmware deps + toolchain
+- [x] Policy-as-code: org policy bundles (local/remote), merge with project policy
+- [x] Advanced CI/CD: GitHub Actions workflows, CI detection, step summaries
+- [x] New REPL commands: `/security`, `/policy`
+
 ---
 
 > **Next Step**: Review this spec, confirm or adjust, then start Prompt 0 to build the project scaffold.

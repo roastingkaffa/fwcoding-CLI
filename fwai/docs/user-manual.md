@@ -138,3 +138,101 @@ project:
 ```
 
 The `gdb_debug` agentic tool is also available to the LLM, enabling autonomous debugging with breakpoints, register inspection, and memory reads.
+
+## Enterprise Features (Phase 5)
+
+### Security
+
+Scan for leaked secrets and redact them from evidence and logs.
+
+```bash
+# Scan workspace for exposed secrets
+fwai> /security scan
+
+# Audit npm dependencies + plugin integrity
+fwai> /security audit-deps
+```
+
+Secret patterns (API keys, tokens, PEM blocks) are redacted automatically in evidence records. Configure custom patterns in `config.yaml`:
+
+```yaml
+security:
+  secret_patterns: ["MY_CUSTOM_\\d+"]
+  redact_in_evidence: true
+  redact_in_logs: true
+```
+
+### Signed Evidence
+
+Sign evidence records with Ed25519 for tamper detection.
+
+```bash
+# Generate a signing key pair
+fwai> /security keygen
+
+# Verify a specific run's signature
+fwai> /security verify <run-id>
+
+# Verify all evidence signatures
+fwai> /security verify-all
+```
+
+Enable automatic signing in `config.yaml`:
+
+```yaml
+security:
+  signing:
+    enabled: true
+    key_path: .fwai/keys/evidence.key
+    algorithm: ed25519
+```
+
+### SBOM Generation
+
+Generate CycloneDX 1.5 Software Bill of Materials alongside evidence.
+
+Enable in policy:
+
+```yaml
+policy:
+  require_sbom: true
+```
+
+The SBOM includes npm dependencies, firmware libraries from `project.yaml`, and toolchain binaries.
+
+### CI/CD Integration
+
+GitHub Actions workflows are provided in `.github/workflows/`:
+
+- `fwai-ci.yml` — lint, test, and audit on push/PR
+- `fwai-release.yml` — publish to npm and generate SBOM on tag
+
+CI environment is auto-detected. In GitHub Actions, fwai writes a step summary with run status, duration, cost, and SBOM info.
+
+### Org Policy
+
+Enforce organization-wide policies that override project settings.
+
+```bash
+# Show merged policy (project + org)
+fwai> /policy show
+
+# Validate config against org policy
+fwai> /policy validate
+
+# Refresh remote org policy
+fwai> /policy refresh
+
+# Show differences between project and org policy
+fwai> /policy diff
+```
+
+Configure in `config.yaml`:
+
+```yaml
+org_policy:
+  path: ./org-policy.json    # local path
+  # url: https://policies.acme.com/firmware.json  # or remote
+  enforce: true
+  refresh_interval_sec: 3600
+```

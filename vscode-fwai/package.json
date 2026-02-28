@@ -95,6 +95,14 @@
       {
         "command": "fwai.debug",
         "title": "FWAI: Debug (GDB)"
+      },
+      {
+        "command": "fwai.security",
+        "title": "FWAI: Security"
+      },
+      {
+        "command": "fwai.policy",
+        "title": "FWAI: Org Policy"
       }
     ],
     "viewsContainers": {

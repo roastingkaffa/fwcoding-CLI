@@ -122,6 +122,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       if (action) output.appendLine(`Debug: ${action}`);
     }),
+    vscode.commands.registerCommand("fwai.security", async () => {
+      const action = await vscode.window.showQuickPick(
+        ["Generate Keys", "Verify Signatures", "Scan Secrets", "Audit Dependencies"],
+        { placeHolder: "Security" }
+      );
+      if (action) output.appendLine(`Security: ${action}`);
+    }),
+    vscode.commands.registerCommand("fwai.policy", async () => {
+      const action = await vscode.window.showQuickPick(
+        ["Show Policy", "Validate", "Refresh", "Diff"],
+        { placeHolder: "Org Policy" }
+      );
+      if (action) output.appendLine(`Policy: ${action}`);
+    }),
   );
 }
 

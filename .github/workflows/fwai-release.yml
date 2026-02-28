@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+        working-directory: fwai
+      - run: npm run build
+        working-directory: fwai
+      - run: npm publish
+        working-directory: fwai
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  sbom:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+        working-directory: fwai
+      - name: Generate SBOM
+        run: npx tsx -e "import { generateSBOM, writeSBOM } from './src/core/sbom-generator.js'; import { loadProject } from './src/core/config-loader.js'; const p = loadProject(); const bom = generateSBOM(p, '.'); writeSBOM(bom, 'sbom.json');"
+        working-directory: fwai
+      - name: Upload SBOM as release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: fwai/sbom.json

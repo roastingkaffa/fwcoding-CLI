@@ -36,6 +36,13 @@ export const ToolchainSchema = z.object({
   gdb_remote: z.string().optional(),
 });
 
+export const ProjectDependencySchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  type: z.enum(["firmware-lib", "rtos", "middleware", "hal"]),
+  source: z.string().optional(),
+});
+
 export const ProjectSchema = z.object({
   project: z.object({
     name: z.string(),
@@ -53,6 +60,7 @@ export const ProjectSchema = z.object({
         policy: OTAPolicySchema.default({}),
       })
       .optional(),
+    dependencies: z.array(ProjectDependencySchema).optional(),
   }),
 });
 
@@ -61,3 +69,4 @@ export type Target = z.infer<typeof TargetSchema>;
 export type BootPatterns = z.infer<typeof BootPatternsSchema>;
 export type SerialConfig = z.infer<typeof SerialSchema>;
 export type ToolchainConfig = z.infer<typeof ToolchainSchema>;
+export type ProjectDependency = z.infer<typeof ProjectDependencySchema>;

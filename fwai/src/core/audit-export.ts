@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { getRunsDir } from "../utils/paths.js";
 import type { Evidence } from "../schemas/evidence.schema.js";
+import { loadSigningKey, signAuditExport } from "./evidence-signer.js";
 
 export interface AuditFilter {
   since?: string;
@@ -157,6 +158,27 @@ export function verifyChainHash(expectedHash: string, cwd?: string): { valid: bo
   const evidence = collectAllEvidence(undefined, cwd);
   const computed = computeChainHash(evidence);
   return { valid: computed === expectedHash, computed };
+}
+
+/** Export evidence with a detached .sig file alongside the export */
+export function exportWithSignature(
+  evidence: Evidence[],
+  content: string,
+  outputPath: string,
+  privateKeyPath?: string
+): void {
+  fs.writeFileSync(outputPath, content);
+
+  if (privateKeyPath) {
+    try {
+      const privateKey = loadSigningKey(privateKeyPath);
+      const { signature, signed_at } = signAuditExport(content, privateKey);
+      const sigPath = outputPath + ".sig";
+      fs.writeFileSync(sigPath, JSON.stringify({ signature, signed_at, algorithm: "ed25519" }, null, 2));
+    } catch {
+      // Signing key not available — skip signature
+    }
+  }
 }
 
 /** Append a single evidence record as JSONL to audit log */

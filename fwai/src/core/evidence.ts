@@ -6,10 +6,14 @@ import { globalTracer } from "../utils/llm-tracer.js";
 import { generateDiff, getGitBranch, getGitCommit } from "./diff.js";
 import { EvidenceSchema, type Evidence, type ToolResult, type HardwareState, type BootStatus, type AgenticSession } from "../schemas/evidence.schema.js";
 import type { ProjectContext } from "../utils/project-context.js";
-import type { Policy } from "../schemas/config.schema.js";
+import type { Config, Policy } from "../schemas/config.schema.js";
 import type { CloudConfig } from "../schemas/license.schema.js";
 import { appendToAuditLog } from "./audit-export.js";
 import { syncRunToCloud } from "./cloud-sync.js";
+import { createScanner, scanEvidence as scanEvidenceSecrets } from "./secret-scanner.js";
+import { loadSigningKey, signEvidence as signEvidenceWithKey } from "./evidence-signer.js";
+import { generateSBOMForRun } from "./sbom-generator.js";
+import type { Project } from "../schemas/project.schema.js";
 import * as log from "../utils/logger.js";
 
 export interface RunSession {
@@ -42,7 +46,7 @@ export function createRunSession(label: string, skill?: string, cwd?: string): R
 export function writeEvidence(
   session: RunSession,
   projectCtx: ProjectContext,
-  opts?: { policy?: Policy; cloudConfig?: CloudConfig }
+  opts?: { policy?: Policy; cloudConfig?: CloudConfig; config?: Config; project?: Project }
 ): Evidence {
   const endTime = new Date();
   const overallStatus = session.toolResults.every((t) => t.status === "success")
@@ -109,6 +113,31 @@ export function writeEvidence(
     }
   }
 
+  // Secret scanning: redact secrets in evidence before writing
+  let secretsRedacted = 0;
+  if (opts?.config?.security?.redact_in_evidence !== false) {
+    const scanner = createScanner(opts?.config?.security?.secret_patterns);
+    const result = scanEvidenceSecrets(evidence, scanner);
+    Object.assign(evidence, result.evidence);
+    secretsRedacted = result.redactedCount;
+  }
+
+  // Set security metadata on evidence
+  evidence.security = {
+    secrets_redacted: secretsRedacted,
+    policy_violations: [],
+  };
+
+  // SBOM generation (if required by policy or config)
+  if (opts?.policy?.require_sbom && opts?.project) {
+    try {
+      const sbomSummary = generateSBOMForRun(opts.project, session.runDir, process.cwd());
+      evidence.sbom = sbomSummary;
+    } catch (e) {
+      log.debug(`SBOM generation failed: ${e}`);
+    }
+  }
+
   // Validate evidence with zod schema
   try {
     EvidenceSchema.parse(evidence);
@@ -120,6 +149,21 @@ export function writeEvidence(
 
   const evidencePath = path.join(session.runDir, "evidence.json");
   fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
+
+  // Sign evidence if signing is enabled
+  if (opts?.config?.security?.signing?.enabled) {
+    try {
+      const keyPath = opts.config.security.signing.key_path ?? ".fwai/keys/evidence.key";
+      const resolvedKeyPath = path.isAbsolute(keyPath) ? keyPath : path.resolve(keyPath);
+      const privateKey = loadSigningKey(resolvedKeyPath);
+      evidence.signature = signEvidenceWithKey(evidence, privateKey);
+      fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
+      log.success(`Evidence signed with Ed25519`);
+    } catch (e) {
+      log.warn(`Evidence signing skipped: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   log.success(`Evidence written to ${evidencePath}`);
 
   // Audit log append

@@ -6,6 +6,7 @@ import type { ToolDef, StopCondition } from "../schemas/tool.schema.js";
 import type { ToolResult, BootStatus } from "../schemas/evidence.schema.js";
 import type { BootPatterns } from "../schemas/project.schema.js";
 import { interpolate } from "../utils/interpolate.js";
+import type { SecretScanner } from "./secret-scanner.js";
 import * as log from "../utils/logger.js";
 
 export interface RunContext {
@@ -14,6 +15,8 @@ export interface RunContext {
   cwd: string;
   /** Boot patterns from project.yaml — passed for stop_conditions with boot_patterns.inherit */
   bootPatterns?: BootPatterns;
+  /** Optional secret scanner for redacting secrets in logs */
+  secretScanner?: SecretScanner;
 }
 
 export interface RunResult {
@@ -43,7 +46,8 @@ export async function runTool(
   const workDir = path.resolve(ctx.cwd, tool.working_dir);
   const logFile = path.join(ctx.runDir, `${tool.name}.log`);
 
-  log.info(`Running ${tool.name}: ${command}`);
+  const displayCommand = ctx.secretScanner ? ctx.secretScanner.redact(command) : command;
+  log.info(`Running ${tool.name}: ${displayCommand}`);
 
   const startTime = Date.now();
 

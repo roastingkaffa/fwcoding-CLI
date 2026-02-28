@@ -7,6 +7,7 @@ import type { LLMProvider, Message } from "./providers/provider.js";
 import type { ToolMessage } from "./providers/tool-types.js";
 import type { RunMode } from "./utils/run-mode.js";
 import type { LicenseStatus } from "./core/license-manager.js";
+import type { OrgPolicy } from "./core/org-policy.js";
 import { formatContextBlock } from "./utils/project-context.js";
 import { globalTracer } from "./utils/llm-tracer.js";
 import { routeCommand } from "./commands/index.js";
@@ -30,6 +31,8 @@ export interface AppContext {
   confirm: (message: string) => Promise<boolean>;
   /** License status (loaded from cache or dashboard) */
   license?: LicenseStatus;
+  /** Org policy (loaded from config path/url) */
+  orgPolicy?: OrgPolicy;
 }
 
 /** Conversation history for multi-turn LLM interaction (supports both text-only and tool-calling) */
