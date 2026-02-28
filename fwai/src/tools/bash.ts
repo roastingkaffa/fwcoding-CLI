@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import type { AgenticTool, ToolExecutionContext, ToolExecutionResult } from "./tool-interface.js";
+import { validateBashCommand } from "./bash-validator.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 const MAX_TIMEOUT_MS = 600_000; // 10 minutes
@@ -34,6 +35,28 @@ export const bashTool: AgenticTool = {
     const command = String(input.command);
     const timeoutSec = input.timeout ? Number(input.timeout) : undefined;
     const timeoutMs = timeoutSec ? Math.min(timeoutSec * 1000, MAX_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS;
+
+    // Validate command against dangerous patterns
+    const validation = validateBashCommand(command, context.policy);
+    if (!validation.allowed) {
+      return {
+        content: `Command blocked: ${validation.reason}\nCommand: ${command}`,
+        is_error: true,
+        metadata: { commands_run: [] },
+      };
+    }
+    if (validation.risk === "moderate" && context.confirm) {
+      const confirmed = await context.confirm(
+        `⚠ ${validation.reason}: ${command}\nProceed? (y/N) `
+      );
+      if (!confirmed) {
+        return {
+          content: `Command cancelled by user: ${validation.reason}`,
+          is_error: true,
+          metadata: { commands_run: [] },
+        };
+      }
+    }
 
     try {
       const output = execSync(command, {

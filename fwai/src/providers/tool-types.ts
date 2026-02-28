@@ -81,6 +81,7 @@ export interface StreamCallbacks {
   onTextDelta?: (text: string) => void;
   onToolUseStart?: (id: string, name: string) => void;
   onToolUseInput?: (id: string, inputDelta: string) => void;
+  onError?: (error: Error) => void;
 }
 
 /** Create a tool result block */

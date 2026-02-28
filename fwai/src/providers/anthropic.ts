@@ -73,8 +73,7 @@ export class AnthropicProvider implements LLMProvider {
         return true;
       },
       this.retryConfig,
-      (attempt, delay) =>
-        log.warn(`Anthropic API retry ${attempt} in ${delay}ms...`),
+      (attempt, delay) => log.warn(`Anthropic API retry ${attempt} in ${delay}ms...`)
     );
 
     const textBlock = response.content.find((b) => b.type === "text");
@@ -92,18 +91,13 @@ export class AnthropicProvider implements LLMProvider {
     return true;
   }
 
-  async completeWithTools(
-    request: ToolCompletionRequest,
-  ): Promise<ToolCompletionResponse> {
+  async completeWithTools(request: ToolCompletionRequest): Promise<ToolCompletionResponse> {
     if (!this.client) throw new Error("Anthropic provider not initialized");
 
     // Map ToolMessage[] to Anthropic SDK message format
     const messages = request.messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      content:
-        typeof m.content === "string"
-          ? m.content
-          : mapContentBlocksToSDK(m.content),
+      content: typeof m.content === "string" ? m.content : mapContentBlocksToSDK(m.content),
     }));
 
     // Map tool definitions to Anthropic SDK format
@@ -129,8 +123,7 @@ export class AnthropicProvider implements LLMProvider {
         return true;
       },
       this.retryConfig,
-      (attempt, delay) =>
-        log.warn(`Anthropic API retry ${attempt} in ${delay}ms...`),
+      (attempt, delay) => log.warn(`Anthropic API retry ${attempt} in ${delay}ms...`)
     );
 
     // Map Anthropic SDK response content to our ContentBlock type
@@ -156,23 +149,19 @@ export class AnthropicProvider implements LLMProvider {
         input_tokens: response.usage.input_tokens,
         output_tokens: response.usage.output_tokens,
       },
-      stop_reason:
-        response.stop_reason as ToolCompletionResponse["stop_reason"],
+      stop_reason: response.stop_reason as ToolCompletionResponse["stop_reason"],
     };
   }
 
   async completeWithToolsStreaming(
     request: ToolCompletionRequest,
-    callbacks: StreamCallbacks,
+    callbacks: StreamCallbacks
   ): Promise<ToolCompletionResponse> {
     if (!this.client) throw new Error("Anthropic provider not initialized");
 
     const messages = request.messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      content:
-        typeof m.content === "string"
-          ? m.content
-          : mapContentBlocksToSDK(m.content),
+      content: typeof m.content === "string" ? m.content : mapContentBlocksToSDK(m.content),
     }));
 
     const tools = request.tools?.map((t) => ({
@@ -204,6 +193,10 @@ export class AnthropicProvider implements LLMProvider {
           }
         });
 
+        stream.on("error", (error) => {
+          callbacks.onError?.(error);
+        });
+
         return await stream.finalMessage();
       },
       (err) => {
@@ -212,8 +205,7 @@ export class AnthropicProvider implements LLMProvider {
         return true;
       },
       this.retryConfig,
-      (attempt, delay) =>
-        log.warn(`Anthropic API streaming retry ${attempt} in ${delay}ms...`),
+      (attempt, delay) => log.warn(`Anthropic API streaming retry ${attempt} in ${delay}ms...`)
     );
 
     // Map final message content to our ContentBlock type
@@ -237,8 +229,7 @@ export class AnthropicProvider implements LLMProvider {
         input_tokens: finalMessage.usage.input_tokens,
         output_tokens: finalMessage.usage.output_tokens,
       },
-      stop_reason:
-        finalMessage.stop_reason as ToolCompletionResponse["stop_reason"],
+      stop_reason: finalMessage.stop_reason as ToolCompletionResponse["stop_reason"],
     };
   }
 
@@ -269,9 +260,7 @@ function toProviderError(err: unknown, provider: string): ProviderError {
 }
 
 /** Map our ContentBlock[] to Anthropic SDK message content */
-function mapContentBlocksToSDK(
-  blocks: ContentBlock[],
-): Anthropic.MessageParam["content"] {
+function mapContentBlocksToSDK(blocks: ContentBlock[]): Anthropic.MessageParam["content"] {
   return blocks.map((block) => {
     switch (block.type) {
       case "text":

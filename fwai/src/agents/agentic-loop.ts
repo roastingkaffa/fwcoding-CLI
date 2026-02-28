@@ -14,6 +14,7 @@ import type { ToolRegistry } from "../tools/tool-registry.js";
 import type { ToolExecutionContext } from "../tools/tool-interface.js";
 import { globalTracer } from "../utils/llm-tracer.js";
 import { ProviderError } from "../utils/errors.js";
+import { shouldCompress, compressConversation } from "./context-manager.js";
 
 // ── Config & Result types ────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ export interface AgenticLoopConfig {
   maxTokens?: number;
   temperature?: number;
   streaming?: boolean; // Use streaming API if available
+  maxContinuations?: number; // Auto-continue on max_tokens truncation (default 2)
   onToolCall?: (name: string, input: Record<string, unknown>) => void;
   onToolResult?: (name: string, result: string, isError: boolean) => void;
   onTextOutput?: (text: string) => void;
@@ -58,6 +60,7 @@ export async function runAgenticLoop(
   config: AgenticLoopConfig
 ): Promise<AgenticLoopResult> {
   const maxIterations = config.maxIterations ?? 50;
+  const maxContinuations = config.maxContinuations ?? 2;
   const provider = config.provider;
   const registry = config.registry;
   const toolDefs = registry.getDefinitions();
@@ -68,11 +71,22 @@ export async function runAgenticLoop(
   const filesWritten = new Set<string>();
   let totalToolCalls = 0;
   let finalText = "";
+  let continuationCount = 0;
 
   // Append user message to conversation
   const messages: ToolMessage[] = [...conversationHistory, { role: "user", content: userMessage }];
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
+    // Context window management: compress if approaching token limit
+    const maxContextTokens = config.maxTokens ?? 4096;
+    if (shouldCompress(messages, maxContextTokens * 25)) {
+      const compressed = await compressConversation(messages, provider, {
+        maxContextTokens: maxContextTokens * 25,
+      });
+      messages.length = 0;
+      messages.push(...compressed);
+    }
+
     // Call LLM with tools (streaming or non-streaming)
     const timer = globalTracer.startCall("agentic_loop");
 
@@ -118,10 +132,24 @@ export async function runAgenticLoop(
     // Append assistant response to conversation
     messages.push({ role: "assistant", content: response.content });
 
-    // If LLM is done (end_turn or max_tokens), exit loop
-    if (response.stop_reason !== "tool_use") {
+    // If LLM is done (end_turn), exit loop
+    if (response.stop_reason === "end_turn") {
       break;
     }
+
+    // Auto-continue on max_tokens truncation
+    if (response.stop_reason === "max_tokens") {
+      if (continuationCount < maxContinuations) {
+        continuationCount++;
+        messages.push({ role: "user", content: "Please continue." });
+        continue;
+      }
+      // Exhausted continuations — exit with what we have
+      break;
+    }
+
+    // Reset continuation counter on tool_use (normal flow)
+    continuationCount = 0;
 
     // Process tool_use blocks
     const toolUseBlocks = extractToolUseBlocks(response.content);
