@@ -44,14 +44,14 @@ export interface LLMProvider {
   /** Send messages with tool definitions, get structured content blocks back.
    *  Only available when supportsToolCalling() returns true. */
   completeWithTools?(
-    request: import("./tool-types.js").ToolCompletionRequest
+    request: import("./tool-types.js").ToolCompletionRequest,
   ): Promise<import("./tool-types.js").ToolCompletionResponse>;
 
   /** Streaming version of completeWithTools — streams text deltas via callbacks.
    *  Returns the same final response as completeWithTools(). */
   completeWithToolsStreaming?(
     request: import("./tool-types.js").ToolCompletionRequest,
-    callbacks: import("./tool-types.js").StreamCallbacks
+    callbacks: import("./tool-types.js").StreamCallbacks,
   ): Promise<import("./tool-types.js").ToolCompletionResponse>;
 }
 
@@ -60,4 +60,10 @@ export interface ProviderInitConfig {
   apiKeyEnv: string;
   maxTokens: number;
   temperature: number;
+  retry?: {
+    max_attempts?: number;
+    initial_delay_ms?: number;
+    max_delay_ms?: number;
+    backoff_multiplier?: number;
+  };
 }

@@ -6,7 +6,10 @@ import type {
   CompletionRequest,
   CompletionResponse,
 } from "./provider.js";
-import { ProviderError } from "../utils/errors.js";
+import { withRetry } from "../utils/retry.js";
+import type { RetryConfig } from "../utils/retry.js";
+import { ProviderError } from "../errors/provider-error.js";
+import * as log from "../utils/logger.js";
 
 export class OpenAIProvider implements LLMProvider {
   name = "openai";
@@ -16,11 +19,21 @@ export class OpenAIProvider implements LLMProvider {
   private temperature = 0.2;
   private ready = false;
   private initError?: string;
+  private retryConfig?: Partial<RetryConfig>;
 
   async init(config: ProviderInitConfig): Promise<void> {
     this.model = config.model;
     this.maxTokens = config.maxTokens;
     this.temperature = config.temperature;
+
+    if (config.retry) {
+      this.retryConfig = {
+        maxAttempts: config.retry.max_attempts,
+        initialDelayMs: config.retry.initial_delay_ms,
+        maxDelayMs: config.retry.max_delay_ms,
+        backoffMultiplier: config.retry.backoff_multiplier,
+      };
+    }
 
     const apiKey = process.env[config.apiKeyEnv];
     if (!apiKey) {
@@ -33,8 +46,7 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
-    if (!this.client)
-      throw new ProviderError("OpenAI provider not initialized", undefined, "openai");
+    if (!this.client) throw new Error("OpenAI provider not initialized");
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
     if (request.system) {
@@ -44,12 +56,23 @@ export class OpenAIProvider implements LLMProvider {
       messages.push({ role: m.role, content: m.content });
     }
 
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      max_tokens: request.max_tokens ?? this.maxTokens,
-      temperature: request.temperature ?? this.temperature,
-      messages,
-    });
+    const response = await withRetry(
+      () =>
+        this.client!.chat.completions.create({
+          model: this.model,
+          max_tokens: request.max_tokens ?? this.maxTokens,
+          temperature: request.temperature ?? this.temperature,
+          messages,
+        }),
+      (err) => {
+        const pe = toProviderError(err, "openai");
+        if (!pe.isRetryable) throw pe;
+        return true;
+      },
+      this.retryConfig,
+      (attempt, delay) =>
+        log.warn(`OpenAI API retry ${attempt} in ${delay}ms...`),
+    );
 
     const choice = response.choices[0];
     return {
@@ -78,4 +101,16 @@ export class OpenAIProvider implements LLMProvider {
       error: this.initError,
     };
   }
+}
+
+function toProviderError(err: unknown, provider: string): ProviderError {
+  if (err instanceof ProviderError) return err;
+  // OpenAI SDK throws APIError with .status
+  if (err && typeof err === "object" && "status" in err) {
+    const status = (err as { status?: number }).status;
+    const message = err instanceof Error ? err.message : String(err);
+    return new ProviderError(message, status, provider);
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return new ProviderError(message, undefined, provider);
 }
