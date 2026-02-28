@@ -1,3 +1,5 @@
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -22,8 +24,8 @@ describe("loadKBDocuments", () => {
     fs.writeFileSync(path.join(kbDir, "readme.txt"), "Plain text doc");
 
     const docs = loadKBDocuments(tmpDir);
-    expect(docs).toHaveLength(2);
-    expect(docs.map((d) => d.path).sort()).toEqual(["notes.md", "readme.txt"]);
+    assert.equal(docs.length, 2);
+    assert.deepStrictEqual(docs.map((d) => d.path).sort(), ["notes.md", "readme.txt"]);
   });
 
   it("extracts title from markdown heading", () => {
@@ -31,7 +33,7 @@ describe("loadKBDocuments", () => {
     fs.writeFileSync(path.join(kbDir, "guide.md"), "# STM32F4 Guide\nContent here");
 
     const docs = loadKBDocuments(tmpDir);
-    expect(docs[0].title).toBe("STM32F4 Guide");
+    assert.equal(docs[0].title, "STM32F4 Guide");
   });
 
   it("uses filename as title when no heading", () => {
@@ -39,14 +41,14 @@ describe("loadKBDocuments", () => {
     fs.writeFileSync(path.join(kbDir, "notes.txt"), "Just plain text");
 
     const docs = loadKBDocuments(tmpDir);
-    expect(docs[0].title).toBe("notes");
+    assert.equal(docs[0].title, "notes");
   });
 
   it("returns empty when no kb/ directory", () => {
     const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "fwai-empty-"));
     fs.mkdirSync(path.join(emptyDir, ".fwai"), { recursive: true });
     const docs = loadKBDocuments(emptyDir);
-    expect(docs).toEqual([]);
+    assert.deepStrictEqual(docs, []);
     fs.rmSync(emptyDir, { recursive: true, force: true });
   });
 
@@ -61,8 +63,8 @@ describe("loadKBDocuments", () => {
       include: ["**/*.md"],
       exclude: ["exclude.md"],
     });
-    expect(docs).toHaveLength(1);
-    expect(docs[0].path).toBe("include.md");
+    assert.equal(docs.length, 1);
+    assert.equal(docs[0].path, "include.md");
   });
 });
 
@@ -75,27 +77,27 @@ describe("searchKB", () => {
 
   it("returns documents matching keywords sorted by score", () => {
     const results = searchKB("STM32 clock", docs);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].path).toBe("stm32.md"); // Best match
+    assert.ok(results.length > 0);
+    assert.equal(results[0].path, "stm32.md"); // Best match
   });
 
   it("returns empty for no matches", () => {
     const results = searchKB("python machine learning", docs);
-    expect(results).toEqual([]);
+    assert.deepStrictEqual(results, []);
   });
 
   it("returns empty for empty query", () => {
-    expect(searchKB("", docs)).toEqual([]);
-    expect(searchKB("   ", docs)).toEqual([]);
+    assert.deepStrictEqual(searchKB("", docs), []);
+    assert.deepStrictEqual(searchKB("   ", docs), []);
   });
 
   it("returns empty for empty documents", () => {
-    expect(searchKB("test", [])).toEqual([]);
+    assert.deepStrictEqual(searchKB("test", []), []);
   });
 
   it("scores title matches higher", () => {
     const results = searchKB("SPI driver", docs);
-    expect(results[0].path).toBe("spi.md");
+    assert.equal(results[0].path, "spi.md");
   });
 });
 
@@ -105,13 +107,13 @@ describe("formatKBContext", () => {
       { path: "test.md", title: "Test Doc", content: "Test content", tokens_estimate: 10, score: 5 },
     ];
     const formatted = formatKBContext(results);
-    expect(formatted).toContain("## Knowledge Base Context");
-    expect(formatted).toContain("### Test Doc (test.md)");
-    expect(formatted).toContain("Test content");
+    assert.ok(formatted.includes("## Knowledge Base Context"));
+    assert.ok(formatted.includes("### Test Doc (test.md)"));
+    assert.ok(formatted.includes("Test content"));
   });
 
   it("returns empty string for no results", () => {
-    expect(formatKBContext([])).toBe("");
+    assert.equal(formatKBContext([]), "");
   });
 
   it("truncates when exceeding token budget", () => {
@@ -123,6 +125,6 @@ describe("formatKBContext", () => {
       score: 10,
     };
     const formatted = formatKBContext([largeDoc], 1000);
-    expect(formatted).toContain("truncated");
+    assert.ok(formatted.includes("truncated"));
   });
 });

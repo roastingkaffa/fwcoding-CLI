@@ -1,3 +1,5 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   isProtectedPath,
   checkProtectedPaths,
@@ -10,27 +12,27 @@ describe("isProtectedPath", () => {
   const protectedPaths = ["boot/**", "*.ld", "src/critical/**"];
 
   it("matches glob pattern boot/**", () => {
-    expect(isProtectedPath("boot/startup.s", protectedPaths)).toBe(true);
-    expect(isProtectedPath("boot/vectors.c", protectedPaths)).toBe(true);
+    assert.equal(isProtectedPath("boot/startup.s", protectedPaths), true);
+    assert.equal(isProtectedPath("boot/vectors.c", protectedPaths), true);
   });
 
   it("matches *.ld pattern", () => {
-    expect(isProtectedPath("linker.ld", protectedPaths)).toBe(true);
-    expect(isProtectedPath("STM32F407.ld", protectedPaths)).toBe(true);
+    assert.equal(isProtectedPath("linker.ld", protectedPaths), true);
+    assert.equal(isProtectedPath("STM32F407.ld", protectedPaths), true);
   });
 
   it("matches nested protected paths", () => {
-    expect(isProtectedPath("src/critical/init.c", protectedPaths)).toBe(true);
+    assert.equal(isProtectedPath("src/critical/init.c", protectedPaths), true);
   });
 
   it("does not match non-protected paths", () => {
-    expect(isProtectedPath("src/main.c", protectedPaths)).toBe(false);
-    expect(isProtectedPath("src/drivers/spi.c", protectedPaths)).toBe(false);
-    expect(isProtectedPath("Makefile", protectedPaths)).toBe(false);
+    assert.equal(isProtectedPath("src/main.c", protectedPaths), false);
+    assert.equal(isProtectedPath("src/drivers/spi.c", protectedPaths), false);
+    assert.equal(isProtectedPath("Makefile", protectedPaths), false);
   });
 
   it("returns false for empty protected paths", () => {
-    expect(isProtectedPath("boot/startup.s", [])).toBe(false);
+    assert.equal(isProtectedPath("boot/startup.s", []), false);
   });
 });
 
@@ -45,22 +47,22 @@ describe("checkProtectedPaths", () => {
       "src/app.c",
     ];
     const protected_ = checkProtectedPaths(changedFiles, protectedPaths);
-    expect(protected_).toEqual(["boot/startup.s", "linker.ld"]);
+    assert.deepStrictEqual(protected_, ["boot/startup.s", "linker.ld"]);
   });
 
   it("returns empty array when no files are protected", () => {
     const changedFiles = ["src/main.c", "src/app.c"];
     const protected_ = checkProtectedPaths(changedFiles, protectedPaths);
-    expect(protected_).toEqual([]);
+    assert.deepStrictEqual(protected_, []);
   });
 
   it("returns empty for empty changed files", () => {
-    expect(checkProtectedPaths([], protectedPaths)).toEqual([]);
+    assert.deepStrictEqual(checkProtectedPaths([], protectedPaths), []);
   });
 
   it("returns empty for empty protected paths", () => {
     const changedFiles = ["boot/startup.s", "linker.ld"];
-    expect(checkProtectedPaths(changedFiles, [])).toEqual([]);
+    assert.deepStrictEqual(checkProtectedPaths(changedFiles, []), []);
   });
 });
 
@@ -96,12 +98,12 @@ describe("generateSmartSplitSuggestions", () => {
 
     const result = await generateSmartSplitSuggestions(testFiles, 100, provider);
 
-    expect(result).toHaveLength(2);
-    expect(result[0].label).toBe("SPI driver");
-    expect(result[0].files).toEqual(["src/drivers/spi.c", "src/drivers/spi.h"]);
-    expect(result[0].lines).toBe(70); // 40+10 + 15+5
-    expect(result[1].label).toBe("App core");
-    expect(result[1].lines).toBe(62); // 30+20 + 10+2
+    assert.equal(result.length, 2);
+    assert.equal(result[0].label, "SPI driver");
+    assert.deepStrictEqual(result[0].files, ["src/drivers/spi.c", "src/drivers/spi.h"]);
+    assert.equal(result[0].lines, 70); // 40+10 + 15+5
+    assert.equal(result[1].label, "App core");
+    assert.equal(result[1].lines, 62); // 30+20 + 10+2
   });
 
   it("falls back to directory-based when LLM returns malformed JSON", async () => {
@@ -110,10 +112,10 @@ describe("generateSmartSplitSuggestions", () => {
     const result = await generateSmartSplitSuggestions(testFiles, 100, provider);
 
     // Should fall back to directory-based (grouped by top-level dir)
-    expect(result.length).toBeGreaterThan(0);
+    assert.ok(result.length > 0);
     // All files accounted for
     const allFiles = result.flatMap((s) => s.files);
-    expect(allFiles.sort()).toEqual(testFiles.map((f) => f.file).sort());
+    assert.deepStrictEqual(allFiles.sort(), testFiles.map((f) => f.file).sort());
   });
 
   it("falls back to directory-based when LLM misses a file", async () => {
@@ -128,7 +130,7 @@ describe("generateSmartSplitSuggestions", () => {
 
     // Should fall back since a file is missing
     const allFiles = result.flatMap((s) => s.files);
-    expect(allFiles.sort()).toEqual(testFiles.map((f) => f.file).sort());
+    assert.deepStrictEqual(allFiles.sort(), testFiles.map((f) => f.file).sort());
   });
 
   it("falls back to directory-based when provider throws", async () => {
@@ -143,17 +145,17 @@ describe("generateSmartSplitSuggestions", () => {
 
     const result = await generateSmartSplitSuggestions(testFiles, 100, provider);
 
-    expect(result.length).toBeGreaterThan(0);
+    assert.ok(result.length > 0);
     const allFiles = result.flatMap((s) => s.files);
-    expect(allFiles.sort()).toEqual(testFiles.map((f) => f.file).sort());
+    assert.deepStrictEqual(allFiles.sort(), testFiles.map((f) => f.file).sort());
   });
 
   it("uses directory-based splitting when no provider given", async () => {
     const result = await generateSmartSplitSuggestions(testFiles, 100);
 
-    expect(result.length).toBeGreaterThan(0);
+    assert.ok(result.length > 0);
     const allFiles = result.flatMap((s) => s.files);
-    expect(allFiles.sort()).toEqual(testFiles.map((f) => f.file).sort());
+    assert.deepStrictEqual(allFiles.sort(), testFiles.map((f) => f.file).sort());
   });
 
   it("uses directory-based splitting when provider is not ready", async () => {
@@ -172,15 +174,15 @@ describe("generateSmartSplitSuggestions", () => {
 
     const result = await generateSmartSplitSuggestions(testFiles, 100, provider);
 
-    expect(result.length).toBeGreaterThan(0);
+    assert.ok(result.length > 0);
     // complete() should NOT have been called since isReady() is false
     const allFiles = result.flatMap((s) => s.files);
-    expect(allFiles.sort()).toEqual(testFiles.map((f) => f.file).sort());
+    assert.deepStrictEqual(allFiles.sort(), testFiles.map((f) => f.file).sort());
   });
 
   it("returns directory-based for empty file list", async () => {
     const provider = makeMockProvider("[]");
     const result = await generateSmartSplitSuggestions([], 100, provider);
-    expect(result).toEqual([]);
+    assert.deepStrictEqual(result, []);
   });
 });

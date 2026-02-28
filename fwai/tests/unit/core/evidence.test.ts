@@ -1,3 +1,5 @@
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -18,18 +20,18 @@ describe("createRunSession", () => {
 
   it("creates a run directory", () => {
     const session = createRunSession("test", "bringup", tmpDir);
-    expect(session.runId).toBeTruthy();
-    expect(session.runDir).toBeTruthy();
-    expect(fs.existsSync(session.runDir)).toBe(true);
-    expect(session.startTime).toBeInstanceOf(Date);
-    expect(session.toolResults).toEqual([]);
-    expect(session.skill).toBe("bringup");
+    assert.ok(session.runId);
+    assert.ok(session.runDir);
+    assert.ok(fs.existsSync(session.runDir));
+    assert.ok(session.startTime instanceof Date);
+    assert.deepStrictEqual(session.toolResults, []);
+    assert.equal(session.skill, "bringup");
   });
 
   it("creates unique run IDs", () => {
     const s1 = createRunSession("a", undefined, tmpDir);
     const s2 = createRunSession("b", undefined, tmpDir);
-    expect(s1.runId).not.toBe(s2.runId);
+    assert.notEqual(s1.runId, s2.runId);
   });
 });
 
@@ -53,22 +55,22 @@ describe("listRecentRuns", () => {
 
   it("returns runs in reverse order (most recent first)", () => {
     const runs = listRecentRuns(10, tmpDir);
-    expect(runs[0]).toContain("ccc");
-    expect(runs[1]).toContain("bbb");
-    expect(runs[2]).toContain("aaa");
+    assert.ok(runs[0].includes("ccc"));
+    assert.ok(runs[1].includes("bbb"));
+    assert.ok(runs[2].includes("aaa"));
   });
 
   it("respects limit", () => {
     const runs = listRecentRuns(2, tmpDir);
-    expect(runs).toHaveLength(2);
-    expect(runs[0]).toContain("ccc");
-    expect(runs[1]).toContain("bbb");
+    assert.equal(runs.length, 2);
+    assert.ok(runs[0].includes("ccc"));
+    assert.ok(runs[1].includes("bbb"));
   });
 
   it("returns empty array when no runs directory exists", () => {
     const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "fwai-empty-"));
     const runs = listRecentRuns(5, emptyDir);
-    expect(runs).toEqual([]);
+    assert.deepStrictEqual(runs, []);
     fs.rmSync(emptyDir, { recursive: true, force: true });
   });
 });
