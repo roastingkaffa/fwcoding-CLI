@@ -24,10 +24,7 @@ const FEATURE_TIERS: Record<string, string[]> = {
 const LICENSE_CACHE_PATH = "logs/license-cache.json";
 
 /** Validate a license key against the dashboard endpoint */
-export async function validateLicense(
-  key: string,
-  endpoint?: string
-): Promise<LicenseStatus> {
+export async function validateLicense(key: string, endpoint?: string): Promise<LicenseStatus> {
   const url = endpoint ?? "https://api.fwai.dev/license/validate";
 
   try {
@@ -99,14 +96,18 @@ export function saveLicenseCache(status: LicenseStatus, cwd?: string): void {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       cachePath,
-      JSON.stringify({
-        valid: status.valid,
-        tier: status.tier,
-        features: Array.from(status.features),
-        seatsAvailable: status.seatsAvailable,
-        expiresAt: status.expiresAt,
-        cachedAt: new Date().toISOString(),
-      }, null, 2)
+      JSON.stringify(
+        {
+          valid: status.valid,
+          tier: status.tier,
+          features: Array.from(status.features),
+          seatsAvailable: status.seatsAvailable,
+          expiresAt: status.expiresAt,
+          cachedAt: new Date().toISOString(),
+        },
+        null,
+        2
+      )
     );
   } catch (err) {
     log.debug(`Failed to cache license: ${err}`);

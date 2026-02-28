@@ -78,10 +78,15 @@ function showProviderStatus(ctx: AppContext): void {
 
 function getDefaultModel(provider: string): string {
   switch (provider) {
-    case "anthropic": return "claude-sonnet-4-20250514";
-    case "openai": return "gpt-4o";
-    case "gemini": return "gemini-pro";
-    case "local": return "local";
-    default: return "default";
+    case "anthropic":
+      return "claude-sonnet-4-20250514";
+    case "openai":
+      return "gpt-4o";
+    case "gemini":
+      return "gemini-pro";
+    case "local":
+      return "local";
+    default:
+      return "default";
   }
 }

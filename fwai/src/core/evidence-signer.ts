@@ -4,7 +4,10 @@ import path from "node:path";
 import type { Evidence, EvidenceSignature } from "../schemas/evidence.schema.js";
 
 /** Generate Ed25519 key pair for evidence signing */
-export function generateSigningKeyPair(outputDir: string): { privateKeyPath: string; publicKeyPath: string } {
+export function generateSigningKeyPair(outputDir: string): {
+  privateKeyPath: string;
+  publicKeyPath: string;
+} {
   fs.mkdirSync(outputDir, { recursive: true });
 
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519", {
@@ -77,7 +80,10 @@ export function verifyEvidenceSignature(evidence: Evidence): { valid: boolean; e
 }
 
 /** Sign arbitrary content (e.g., audit exports) */
-export function signAuditExport(content: string, privateKey: crypto.KeyObject): { signature: string; signed_at: string } {
+export function signAuditExport(
+  content: string,
+  privateKey: crypto.KeyObject
+): { signature: string; signed_at: string } {
   const sig = crypto.sign(null, Buffer.from(content), privateKey);
   return {
     signature: sig.toString("hex"),

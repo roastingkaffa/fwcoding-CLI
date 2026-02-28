@@ -37,9 +37,7 @@ export const editFileTool: AgenticTool = {
     const oldText = String(input.old_text);
     const newText = String(input.new_text);
 
-    const resolved = path.isAbsolute(filePath)
-      ? filePath
-      : path.resolve(context.cwd, filePath);
+    const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(context.cwd, filePath);
 
     // Check protected paths
     const relative = path.relative(context.cwd, resolved);
@@ -87,7 +85,8 @@ export const editFileTool: AgenticTool = {
       }
 
       // Perform replacement
-      const updated = content.slice(0, firstIdx) + newText + content.slice(firstIdx + oldText.length);
+      const updated =
+        content.slice(0, firstIdx) + newText + content.slice(firstIdx + oldText.length);
       fs.writeFileSync(resolved, updated, "utf-8");
 
       // Calculate line info for feedback

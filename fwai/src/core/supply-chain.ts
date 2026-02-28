@@ -18,7 +18,11 @@ export interface NpmAuditResult {
 /** Run npm audit --json and parse results */
 export function auditNpmDependencies(cwd: string): NpmAuditResult {
   try {
-    const output = execSync("npm audit --json 2>/dev/null", { cwd, encoding: "utf-8", timeout: 30000 });
+    const output = execSync("npm audit --json 2>/dev/null", {
+      cwd,
+      encoding: "utf-8",
+      timeout: 30000,
+    });
     const data = JSON.parse(output);
     const vulns: NpmVulnerability[] = [];
 
@@ -61,7 +65,9 @@ export function verifyPluginIntegrity(pluginDir: string): PluginIntegrityResult 
 
   // Compute SHA-256 of all plugin files (sorted for determinism)
   const hash = crypto.createHash("sha256");
-  const files = collectFiles(pluginDir).filter((f) => path.basename(f) !== "manifest.json").sort();
+  const files = collectFiles(pluginDir)
+    .filter((f) => path.basename(f) !== "manifest.json")
+    .sort();
   for (const file of files) {
     hash.update(fs.readFileSync(file));
   }
@@ -93,16 +99,23 @@ export interface ToolchainBinaryInfo {
 /** Record SHA-256 hashes of toolchain binaries for reproducibility */
 export function checkToolchainBinaries(toolchain: ToolchainConfig): ToolchainBinaryInfo[] {
   const results: ToolchainBinaryInfo[] = [];
-  const binaries = [toolchain.compiler, toolchain.debugger, toolchain.flasher].filter(Boolean) as string[];
+  const binaries = [toolchain.compiler, toolchain.debugger, toolchain.flasher].filter(
+    Boolean
+  ) as string[];
 
   for (const binary of binaries) {
     try {
       const resolvedPath = execSync(`which ${binary} 2>/dev/null`, { encoding: "utf-8" }).trim();
       if (resolvedPath && fs.existsSync(resolvedPath)) {
-        const hash = crypto.createHash("sha256").update(fs.readFileSync(resolvedPath)).digest("hex");
+        const hash = crypto
+          .createHash("sha256")
+          .update(fs.readFileSync(resolvedPath))
+          .digest("hex");
         results.push({ binary, path: resolvedPath, sha256: hash });
       }
-    } catch { /* binary not found */ }
+    } catch {
+      /* binary not found */
+    }
   }
   return results;
 }

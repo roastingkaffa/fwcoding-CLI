@@ -12,10 +12,7 @@ export function loadAgentMap(cwd?: string): Map<string, AgentConfig> {
 }
 
 /** Get a specific agent by name */
-export function getAgent(
-  name: string,
-  cwd?: string
-): AgentConfig | undefined {
+export function getAgent(name: string, cwd?: string): AgentConfig | undefined {
   const map = loadAgentMap(cwd);
   return map.get(name);
 }

@@ -14,10 +14,7 @@ export interface ProjectContext {
 }
 
 /** Extract ProjectContext from project.yaml data */
-export function buildProjectContext(
-  project: Project,
-  compilerVersion?: string
-): ProjectContext {
+export function buildProjectContext(project: Project, compilerVersion?: string): ProjectContext {
   const p = project.project;
   return {
     name: p.name,
@@ -43,9 +40,7 @@ export function formatContextBlock(ctx: ProjectContext): string {
   if (ctx.arch) lines.push(`- Architecture: ${ctx.arch}`);
   if (ctx.board) lines.push(`- Board: ${ctx.board}`);
   if (ctx.flash_size || ctx.ram_size) {
-    lines.push(
-      `- Flash: ${ctx.flash_size ?? "unknown"} | RAM: ${ctx.ram_size ?? "unknown"}`
-    );
+    lines.push(`- Flash: ${ctx.flash_size ?? "unknown"} | RAM: ${ctx.ram_size ?? "unknown"}`);
   }
   lines.push(`- Build System: ${ctx.build_system}`);
   // If version string already contains the compiler name, use it directly

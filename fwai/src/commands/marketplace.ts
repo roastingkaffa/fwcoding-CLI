@@ -88,7 +88,9 @@ export async function handleMarketplace(args: string, ctx: AppContext): Promise<
       log.info(`Description: ${info.description ?? "-"}`);
       if (info.artifacts) {
         const { tools, skills, agents } = info.artifacts;
-        log.info(`Artifacts:   ${tools.length} tools, ${skills.length} skills, ${agents.length} agents`);
+        log.info(
+          `Artifacts:   ${tools.length} tools, ${skills.length} skills, ${agents.length} agents`
+        );
       }
     } catch (err) {
       log.error(`Info failed: ${err instanceof Error ? err.message : String(err)}`);

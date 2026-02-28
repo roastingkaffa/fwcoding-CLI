@@ -36,9 +36,7 @@ export const readFileTool: AgenticTool = {
     const offset = Math.max(1, Number(input.offset) || 1);
     const limit = Math.min(5000, Math.max(1, Number(input.limit) || 2000));
 
-    const resolved = path.isAbsolute(filePath)
-      ? filePath
-      : path.resolve(context.cwd, filePath);
+    const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(context.cwd, filePath);
 
     if (!fs.existsSync(resolved)) {
       return { content: `Error: File not found: ${resolved}`, is_error: true };

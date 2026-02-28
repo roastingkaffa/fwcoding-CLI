@@ -29,9 +29,7 @@ export const searchGlobTool: AgenticTool = {
     context: ToolExecutionContext
   ): Promise<ToolExecutionResult> {
     const pattern = String(input.pattern);
-    const searchPath = input.path
-      ? path.resolve(context.cwd, String(input.path))
-      : context.cwd;
+    const searchPath = input.path ? path.resolve(context.cwd, String(input.path)) : context.cwd;
 
     try {
       // Use find with -name or -path depending on pattern complexity
@@ -52,7 +50,8 @@ export const searchGlobTool: AgenticTool = {
       const maxFiles = 500;
       const truncated = files.length > maxFiles;
       const result = truncated
-        ? files.slice(0, maxFiles).join("\n") + `\n... (${files.length - maxFiles} more files truncated)`
+        ? files.slice(0, maxFiles).join("\n") +
+          `\n... (${files.length - maxFiles} more files truncated)`
         : files.join("\n");
 
       return {

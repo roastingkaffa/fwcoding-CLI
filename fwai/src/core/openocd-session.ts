@@ -10,10 +10,7 @@ export interface OpenOCDHandle {
 }
 
 /** Start an OpenOCD server and wait for it to be ready */
-export async function startOpenOCD(
-  config: string,
-  cwd?: string
-): Promise<OpenOCDHandle> {
+export async function startOpenOCD(config: string, cwd?: string): Promise<OpenOCDHandle> {
   return new Promise((resolve, reject) => {
     const proc = spawn("openocd", ["-f", config], {
       cwd,
@@ -33,7 +30,9 @@ export async function startOpenOCD(
           process: proc,
           gdbPort,
           telnetPort,
-          stop: () => { proc.kill("SIGTERM"); },
+          stop: () => {
+            proc.kill("SIGTERM");
+          },
         });
       }
     }, 10000);
@@ -59,7 +58,9 @@ export async function startOpenOCD(
             process: proc,
             gdbPort,
             telnetPort,
-            stop: () => { proc.kill("SIGTERM"); },
+            stop: () => {
+              proc.kill("SIGTERM");
+            },
           });
         }
       });

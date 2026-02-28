@@ -3,10 +3,7 @@ import type { CloudConfig } from "../schemas/license.schema.js";
 import * as log from "../utils/logger.js";
 
 /** Sync a single run's evidence summary to the cloud dashboard (fire-and-forget) */
-export async function syncRunToCloud(
-  evidence: Evidence,
-  cloudConfig: CloudConfig
-): Promise<void> {
+export async function syncRunToCloud(evidence: Evidence, cloudConfig: CloudConfig): Promise<void> {
   const url = `${cloudConfig.dashboard_url}/api/runs`;
   const payload = {
     run_id: evidence.run_id,

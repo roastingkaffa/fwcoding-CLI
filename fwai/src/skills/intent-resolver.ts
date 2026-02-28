@@ -56,9 +56,7 @@ export async function resolveIntent(
 }
 
 /** Build the LLM classification prompt */
-function buildClassificationPrompt(
-  skills: Map<string, SkillConfig>
-): string {
+function buildClassificationPrompt(skills: Map<string, SkillConfig>): string {
   const skillList = Array.from(skills.values())
     .map((s) => {
       const triggers = s.triggers?.join(", ") ?? "none";
@@ -135,12 +133,7 @@ export function parseIntentResponse(raw: string): IntentResult {
 }
 
 /** Record intent resolution trace (for non-LLM tiers) */
-function recordIntentTrace(
-  input: string,
-  skill: string,
-  confidence: number,
-  source: string
-): void {
+function recordIntentTrace(input: string, skill: string, confidence: number, source: string): void {
   globalTracer.record({
     purpose: "intent_resolution",
     model: globalTracer.getModel() || "n/a",

@@ -22,11 +22,18 @@ export async function handleOTA(args: string, ctx: AppContext): Promise<void> {
   const otaConfig = ctx.project.project.ota;
   const bundleDir = otaConfig?.bundle_dir ?? ".fwai/ota";
   const targets = otaConfig?.targets ?? [];
-  const policy = otaConfig?.policy ?? { require_build_success: true, require_checksum: true, rollback_on_boot_failure: false, max_retry: 0, confirm: true };
+  const policy = otaConfig?.policy ?? {
+    require_build_success: true,
+    require_checksum: true,
+    rollback_on_boot_failure: false,
+    max_retry: 0,
+    confirm: true,
+  };
 
   if (sub === "bundle") {
     const version = extractFlag(parts, "--version") ?? `0.0.${Date.now()}`;
-    const elfPath = extractFlag(parts, "--elf") ?? ctx.project.project.build.build_dir + "/firmware.elf";
+    const elfPath =
+      extractFlag(parts, "--elf") ?? ctx.project.project.build.build_dir + "/firmware.elf";
     try {
       buildOTABundle(elfPath, version, bundleDir);
     } catch (err) {
@@ -54,7 +61,9 @@ export async function handleOTA(args: string, ctx: AppContext): Promise<void> {
     } else if (targetId) {
       const target = targets.find((t) => t.device_id === targetId);
       if (!target) {
-        log.error(`Target "${targetId}" not found. Available: ${targets.map((t) => t.device_id).join(", ")}`);
+        log.error(
+          `Target "${targetId}" not found. Available: ${targets.map((t) => t.device_id).join(", ")}`
+        );
         return;
       }
       const result = await deployToTarget(latest, target, policy, ctx.confirm);

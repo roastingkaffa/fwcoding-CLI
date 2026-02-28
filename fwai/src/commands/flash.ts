@@ -20,8 +20,8 @@ export async function handleFlash(_args: string, ctx: AppContext): Promise<void>
   }
 
   // Confirmation handling based on run mode
-  const needsConfirm = ctx.config.policy.flash_guard.require_confirmation
-    || toolDef.guard?.require_confirmation;
+  const needsConfirm =
+    ctx.config.policy.flash_guard.require_confirmation || toolDef.guard?.require_confirmation;
 
   if (needsConfirm) {
     if (ctx.runMode === "ci") {
@@ -34,8 +34,7 @@ export async function handleFlash(_args: string, ctx: AppContext): Promise<void>
     } else {
       const mcu = ctx.project.project.target.mcu;
       const port = ctx.project.project.serial.port;
-      const message = toolDef.guard?.message
-        ?? `Flash target [${mcu}] on [${port}]? (y/N) `;
+      const message = toolDef.guard?.message ?? `Flash target [${mcu}] on [${port}]? (y/N) `;
       const confirmed = await ctx.confirm(message);
       if (!confirmed) {
         log.info("Flash cancelled.");
@@ -61,4 +60,3 @@ export async function handleFlash(_args: string, ctx: AppContext): Promise<void>
   session.toolResults.push(toolResult);
   writeEvidence(session, ctx.projectCtx);
 }
-

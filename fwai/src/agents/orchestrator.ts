@@ -107,7 +107,9 @@ export async function runParallelAgents(
           else log.success(`  [${task.label}] Tool ${name} done`);
         },
         onTextOutput: (text) => {
-          log.info(`  [${task.label}] Output: ${text.slice(0, 200)}${text.length > 200 ? "..." : ""}`);
+          log.info(
+            `  [${task.label}] Output: ${text.slice(0, 200)}${text.length > 200 ? "..." : ""}`
+          );
         },
       });
 

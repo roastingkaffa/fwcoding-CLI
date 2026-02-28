@@ -32,9 +32,7 @@ function showRunList(): void {
       .join(" ");
     const duration = (evidence.duration_ms / 1000).toFixed(1);
     const status = evidence.status.toUpperCase().padEnd(8);
-    console.log(
-      `  #${i + 1}  ${runId}  ${status}  [${toolSummary}]  ${duration}s`
-    );
+    console.log(`  #${i + 1}  ${runId}  ${status}  [${toolSummary}]  ${duration}s`);
   }
   log.line();
   console.log("\n  Use /evidence <run-id> for details.\n");
@@ -88,10 +86,14 @@ function printEvidenceDetail(ev: Evidence): void {
   if (ev.project.arch) console.log(`  Arch:       ${ev.project.arch}`);
   if (ev.project.board) console.log(`  Board:      ${ev.project.board}`);
   if (ev.project.flash_size || ev.project.ram_size) {
-    console.log(`  Memory:     Flash ${ev.project.flash_size ?? "?"} | RAM ${ev.project.ram_size ?? "?"}`);
+    console.log(
+      `  Memory:     Flash ${ev.project.flash_size ?? "?"} | RAM ${ev.project.ram_size ?? "?"}`
+    );
   }
   if (ev.project.git_branch) {
-    console.log(`  Git:        ${ev.project.git_branch}${ev.project.git_commit ? ` (${ev.project.git_commit})` : ""}`);
+    console.log(
+      `  Git:        ${ev.project.git_branch}${ev.project.git_commit ? ` (${ev.project.git_commit})` : ""}`
+    );
   }
 
   // Tools
@@ -103,7 +105,9 @@ function printEvidenceDetail(ev: Evidence): void {
       const dur = `${t.duration_ms}ms`;
       const pat = t.pattern_matched ? ` [${t.pattern_matched}]` : "";
       console.log(`    ${icon} ${t.tool.padEnd(12)} ${t.status.padEnd(8)} ${dur.padEnd(8)}${pat}`);
-      console.log(`      cmd: ${t.command.length > 60 ? t.command.slice(0, 60) + "..." : t.command}`);
+      console.log(
+        `      cmd: ${t.command.length > 60 ? t.command.slice(0, 60) + "..." : t.command}`
+      );
     }
   }
 
@@ -115,17 +119,21 @@ function printEvidenceDetail(ev: Evidence): void {
     console.log(`    Debugger:   ${ev.hardware.debugger}`);
     if (ev.hardware.connection_type) console.log(`    Connection: ${ev.hardware.connection_type}`);
     if (ev.hardware.detected_device) console.log(`    Device:     ${ev.hardware.detected_device}`);
-    if (ev.hardware.flash_verified != null) console.log(`    Verified:   ${ev.hardware.flash_verified ? "yes" : "no"}`);
+    if (ev.hardware.flash_verified != null)
+      console.log(`    Verified:   ${ev.hardware.flash_verified ? "yes" : "no"}`);
   }
 
   // Boot Status
   if (ev.boot_status) {
     console.log("");
     log.heading("  Boot Status:");
-    const bIcon = ev.boot_status.status === "success" ? "✓" : ev.boot_status.status === "fail" ? "✗" : "?";
+    const bIcon =
+      ev.boot_status.status === "success" ? "✓" : ev.boot_status.status === "fail" ? "✗" : "?";
     console.log(`    ${bIcon} ${ev.boot_status.status.toUpperCase()}`);
-    if (ev.boot_status.matched_pattern) console.log(`    Pattern:    ${ev.boot_status.matched_pattern}`);
-    if (ev.boot_status.boot_time_ms != null) console.log(`    Boot time:  ${ev.boot_status.boot_time_ms}ms`);
+    if (ev.boot_status.matched_pattern)
+      console.log(`    Pattern:    ${ev.boot_status.matched_pattern}`);
+    if (ev.boot_status.boot_time_ms != null)
+      console.log(`    Boot time:  ${ev.boot_status.boot_time_ms}ms`);
   }
 
   // Changes
@@ -145,8 +153,11 @@ function printEvidenceDetail(ev: Evidence): void {
     console.log(`    Provider:   ${ev.llm.provider}`);
     console.log(`    Model:      ${ev.llm.model}`);
     console.log(`    Calls:      ${ev.llm.calls.length}`);
-    console.log(`    Tokens:     ${ev.llm.total_input_tokens} in / ${ev.llm.total_output_tokens} out`);
-    if (ev.llm.estimated_cost_usd != null) console.log(`    Cost:       $${ev.llm.estimated_cost_usd.toFixed(4)}`);
+    console.log(
+      `    Tokens:     ${ev.llm.total_input_tokens} in / ${ev.llm.total_output_tokens} out`
+    );
+    if (ev.llm.estimated_cost_usd != null)
+      console.log(`    Cost:       $${ev.llm.estimated_cost_usd.toFixed(4)}`);
   }
 
   log.line();

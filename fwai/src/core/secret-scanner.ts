@@ -5,10 +5,19 @@ import type { Evidence } from "../schemas/evidence.schema.js";
 export const DEFAULT_SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "aws_key", re: /AKIA[0-9A-Z]{16}/g },
   { name: "openai_key", re: /sk-[A-Za-z0-9]{32,}/g },
-  { name: "generic_token", re: /(?:token|bearer|authorization)[=:\s]+["']?[A-Za-z0-9\-_.]{20,}["']?/gi },
+  {
+    name: "generic_token",
+    re: /(?:token|bearer|authorization)[=:\s]+["']?[A-Za-z0-9\-_.]{20,}["']?/gi,
+  },
   { name: "password_in_url", re: /:\/\/[^:]+:[^@]{8,}@/g },
-  { name: "pem_block", re: /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g },
-  { name: "hex_secret", re: /(?:secret|key|password|passwd|pwd)[=:\s]+["']?[0-9a-fA-F]{32,}["']?/gi },
+  {
+    name: "pem_block",
+    re: /-----BEGIN (?:RSA |EC )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC )?PRIVATE KEY-----/g,
+  },
+  {
+    name: "hex_secret",
+    re: /(?:secret|key|password|passwd|pwd)[=:\s]+["']?[0-9a-fA-F]{32,}["']?/gi,
+  },
   { name: "github_token", re: /gh[pousr]_[A-Za-z0-9_]{36,}/g },
 ];
 
@@ -35,7 +44,9 @@ export function createScanner(customPatterns?: string[]): SecretScanner {
     for (const p of customPatterns) {
       try {
         patterns.push({ name: "custom", re: new RegExp(p, "g") });
-      } catch { /* skip invalid regex */ }
+      } catch {
+        /* skip invalid regex */
+      }
     }
   }
 
@@ -72,7 +83,10 @@ export function scanFile(filePath: string, scanner: SecretScanner): ScanResult {
 }
 
 /** Scan and redact secrets from evidence tool commands and log references */
-export function scanEvidence(evidence: Evidence, scanner: SecretScanner): { evidence: Evidence; redactedCount: number } {
+export function scanEvidence(
+  evidence: Evidence,
+  scanner: SecretScanner
+): { evidence: Evidence; redactedCount: number } {
   let totalRedacted = 0;
   const redacted = { ...evidence };
 

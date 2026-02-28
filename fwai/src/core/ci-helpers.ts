@@ -29,7 +29,8 @@ export function generateGitHubActionsSummary(evidence: Evidence): void {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (!summaryPath) return;
 
-  const statusIcon = evidence.status === "success" ? "✅" : evidence.status === "fail" ? "❌" : "⚠️";
+  const statusIcon =
+    evidence.status === "success" ? "✅" : evidence.status === "fail" ? "❌" : "⚠️";
   const lines = [
     `## ${statusIcon} fwai Run: ${evidence.run_id}`,
     "",

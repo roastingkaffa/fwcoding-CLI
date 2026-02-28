@@ -5,9 +5,7 @@ import { OpenAIProvider } from "./openai.js";
 import * as log from "../utils/logger.js";
 
 /** Create and initialize an LLM provider from config */
-export async function createProvider(
-  config: ProviderConfig
-): Promise<LLMProvider> {
+export async function createProvider(config: ProviderConfig): Promise<LLMProvider> {
   let provider: LLMProvider;
 
   switch (config.name) {

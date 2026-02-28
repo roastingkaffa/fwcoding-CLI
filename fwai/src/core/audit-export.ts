@@ -98,7 +98,8 @@ export function exportAsSarif(evidence: Evidence[]): string {
   );
 
   const sarif = {
-    $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+    $schema:
+      "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
     version: "2.1.0",
     runs: [
       {
@@ -154,7 +155,10 @@ export function computeChainHash(evidence: Evidence[]): string {
 }
 
 /** Recompute chain hash from stored evidence and compare */
-export function verifyChainHash(expectedHash: string, cwd?: string): { valid: boolean; computed: string } {
+export function verifyChainHash(
+  expectedHash: string,
+  cwd?: string
+): { valid: boolean; computed: string } {
   const evidence = collectAllEvidence(undefined, cwd);
   const computed = computeChainHash(evidence);
   return { valid: computed === expectedHash, computed };
@@ -174,7 +178,10 @@ export function exportWithSignature(
       const privateKey = loadSigningKey(privateKeyPath);
       const { signature, signed_at } = signAuditExport(content, privateKey);
       const sigPath = outputPath + ".sig";
-      fs.writeFileSync(sigPath, JSON.stringify({ signature, signed_at, algorithm: "ed25519" }, null, 2));
+      fs.writeFileSync(
+        sigPath,
+        JSON.stringify({ signature, signed_at, algorithm: "ed25519" }, null, 2)
+      );
     } catch {
       // Signing key not available — skip signature
     }

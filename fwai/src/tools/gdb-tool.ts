@@ -78,9 +78,10 @@ export const gdbTool: AgenticTool = {
 
       parts.push("=== Raw Output ===");
       // Truncate to 20KB
-      const raw = result.output.length > 20000
-        ? result.output.slice(0, 20000) + "\n... (truncated)"
-        : result.output;
+      const raw =
+        result.output.length > 20000
+          ? result.output.slice(0, 20000) + "\n... (truncated)"
+          : result.output;
       parts.push(raw);
 
       return {

@@ -4,7 +4,14 @@ import { ZodError } from "zod";
 import { getRunsDir, generateRunId } from "../utils/paths.js";
 import { globalTracer } from "../utils/llm-tracer.js";
 import { generateDiff, getGitBranch, getGitCommit } from "./diff.js";
-import { EvidenceSchema, type Evidence, type ToolResult, type HardwareState, type BootStatus, type AgenticSession } from "../schemas/evidence.schema.js";
+import {
+  EvidenceSchema,
+  type Evidence,
+  type ToolResult,
+  type HardwareState,
+  type BootStatus,
+  type AgenticSession,
+} from "../schemas/evidence.schema.js";
 import type { ProjectContext } from "../utils/project-context.js";
 import type { Config, Policy } from "../schemas/config.schema.js";
 import type { CloudConfig } from "../schemas/license.schema.js";
@@ -104,9 +111,7 @@ export function writeEvidence(
   if (evidence.hardware) {
     const flashResult = session.toolResults.find((t) => t.tool === "flash");
     if (flashResult) {
-      const detectedDevice = parseDetectedDevice(
-        path.join(session.runDir, flashResult.log_file)
-      );
+      const detectedDevice = parseDetectedDevice(path.join(session.runDir, flashResult.log_file));
       if (detectedDevice) {
         evidence.hardware.detected_device = detectedDevice;
       }
@@ -143,7 +148,9 @@ export function writeEvidence(
     EvidenceSchema.parse(evidence);
   } catch (e) {
     if (e instanceof ZodError) {
-      log.warn(`Evidence schema validation warning: ${e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ")}`);
+      log.warn(
+        `Evidence schema validation warning: ${e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ")}`
+      );
     }
   }
 
@@ -212,9 +219,10 @@ function parseDetectedDevice(logPath: string): string | undefined {
 }
 
 /** Build HardwareState from project config */
-export function buildHardwareState(
-  project: { serial: { port: string }; toolchain: { debugger?: string; flasher?: string } }
-): HardwareState {
+export function buildHardwareState(project: {
+  serial: { port: string };
+  toolchain: { debugger?: string; flasher?: string };
+}): HardwareState {
   return {
     serial_port: project.serial.port,
     debugger: project.toolchain.debugger ?? project.toolchain.flasher ?? "unknown",
@@ -226,11 +234,7 @@ export function buildHardwareState(
 export function listRecentRuns(limit = 5, cwd?: string): string[] {
   const runsDir = getRunsDir(cwd);
   if (!fs.existsSync(runsDir)) return [];
-  return fs
-    .readdirSync(runsDir)
-    .sort()
-    .reverse()
-    .slice(0, limit);
+  return fs.readdirSync(runsDir).sort().reverse().slice(0, limit);
 }
 
 /** Load evidence.json from a run directory */

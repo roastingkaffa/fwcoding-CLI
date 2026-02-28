@@ -120,10 +120,14 @@ export function parseSizeString(s: string): number {
   const num = parseFloat(match[1]);
   const unit = (match[2] ?? "").toUpperCase();
   switch (unit) {
-    case "K": return Math.round(num * 1024);
-    case "M": return Math.round(num * 1024 * 1024);
-    case "G": return Math.round(num * 1024 * 1024 * 1024);
-    default: return Math.round(num);
+    case "K":
+      return Math.round(num * 1024);
+    case "M":
+      return Math.round(num * 1024 * 1024);
+    case "G":
+      return Math.round(num * 1024 * 1024 * 1024);
+    default:
+      return Math.round(num);
   }
 }
 
@@ -147,14 +151,18 @@ export function formatMemoryTable(report: MemoryReport): string {
   if (report.size_output) {
     const so = report.size_output;
     lines.push("");
-    lines.push(`  text: ${fmtBytes(so.text)}  data: ${fmtBytes(so.data)}  bss: ${fmtBytes(so.bss)}`);
+    lines.push(
+      `  text: ${fmtBytes(so.text)}  data: ${fmtBytes(so.data)}  bss: ${fmtBytes(so.bss)}`
+    );
   }
 
   if (report.sections && report.sections.length > 0) {
     lines.push("");
     lines.push("  Sections:");
     for (const s of report.sections) {
-      lines.push(`    ${s.name.padEnd(16)} ${fmtBytes(s.size).padStart(10)}  @ 0x${s.address.toString(16).padStart(8, "0")}`);
+      lines.push(
+        `    ${s.name.padEnd(16)} ${fmtBytes(s.size).padStart(10)}  @ 0x${s.address.toString(16).padStart(8, "0")}`
+      );
     }
   }
 
@@ -184,11 +192,13 @@ export const memoryAnalysisTool: AgenticTool = {
         },
         flash_total: {
           type: "string",
-          description: 'Total flash size (e.g. "512K", "1M"). Optional — reads from project.yaml if omitted.',
+          description:
+            'Total flash size (e.g. "512K", "1M"). Optional — reads from project.yaml if omitted.',
         },
         ram_total: {
           type: "string",
-          description: 'Total RAM size (e.g. "128K", "256K"). Optional — reads from project.yaml if omitted.',
+          description:
+            'Total RAM size (e.g. "128K", "256K"). Optional — reads from project.yaml if omitted.',
         },
         map_file: {
           type: "string",

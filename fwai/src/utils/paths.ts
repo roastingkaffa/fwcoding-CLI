@@ -33,7 +33,10 @@ export function getRunsDir(cwd?: string): string {
 /** Generate a timestamped run directory name */
 export function generateRunId(label: string): string {
   const now = new Date();
-  const ts = now.toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+  const ts = now
+    .toISOString()
+    .replace(/[-:T.]/g, "")
+    .slice(0, 14);
   const formatted = `${ts.slice(0, 8)}-${ts.slice(8)}`;
   return `${formatted}-${label}`;
 }

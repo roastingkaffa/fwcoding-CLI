@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { LicenseSchema, CloudConfigSchema } from "./license.schema.js";
+import { BoardFarmConfigSchema } from "./board-farm.schema.js";
+import { MCPConfigSchema } from "./mcp.schema.js";
+import { KBConfigSchema } from "./kb.schema.js";
 
 export const ProviderConfigSchema = z.object({
   name: z.enum(["anthropic", "openai", "gemini", "local"]),
@@ -31,9 +34,7 @@ export const PolicySchema = z.object({
       max_size_mb: z.number().positive().default(50),
     })
     .optional(),
-  compliance_mode: z
-    .enum(["none", "iso26262", "do178c", "iec62443"])
-    .default("none"),
+  compliance_mode: z.enum(["none", "iso26262", "do178c", "iec62443"]).default("none"),
   require_signing: z.boolean().default(false),
   require_sbom: z.boolean().default(false),
   allowed_tools: z.array(z.string()).default([]),
@@ -103,6 +104,9 @@ export const ConfigSchema = z.object({
   plugins: z.array(z.string()).default([]),
   security: SecurityConfigSchema,
   org_policy: OrgPolicyConfigSchema,
+  board_farm: BoardFarmConfigSchema.optional(),
+  mcp: MCPConfigSchema.optional(),
+  kb: KBConfigSchema.optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

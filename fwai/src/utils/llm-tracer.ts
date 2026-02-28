@@ -2,23 +2,27 @@ import type { LLMCallRecord } from "../schemas/evidence.schema.js";
 
 /** Per-token pricing in USD (per 1M tokens) */
 interface ModelPricing {
-  input: number;   // cost per 1M input tokens
-  output: number;  // cost per 1M output tokens
+  input: number; // cost per 1M input tokens
+  output: number; // cost per 1M output tokens
 }
 
 const MODEL_PRICING: Record<string, ModelPricing> = {
   // Anthropic
   "claude-sonnet-4-20250514": { input: 3.0, output: 15.0 },
-  "claude-haiku-4-5-20251001": { input: 0.80, output: 4.0 },
+  "claude-haiku-4-5-20251001": { input: 0.8, output: 4.0 },
   "claude-opus-4-20250514": { input: 15.0, output: 75.0 },
   // OpenAI
   "gpt-4o": { input: 2.5, output: 10.0 },
-  "gpt-4o-mini": { input: 0.15, output: 0.60 },
+  "gpt-4o-mini": { input: 0.15, output: 0.6 },
   "gpt-4-turbo": { input: 10.0, output: 30.0 },
 };
 
 /** Estimate cost in USD from token counts and model */
-export function estimateCost(model: string, inputTokens: number, outputTokens: number): number | undefined {
+export function estimateCost(
+  model: string,
+  inputTokens: number,
+  outputTokens: number
+): number | undefined {
   // Try exact match first, then prefix match
   let pricing = MODEL_PRICING[model];
   if (!pricing) {
@@ -90,11 +94,7 @@ export class LLMCallTimer {
     this.startTime = Date.now();
   }
 
-  finish(
-    inputTokens: number,
-    outputTokens: number,
-    metadata?: Record<string, unknown>
-  ): void {
+  finish(inputTokens: number, outputTokens: number, metadata?: Record<string, unknown>): void {
     this.tracer.record({
       purpose: this.purpose,
       model: this.model,

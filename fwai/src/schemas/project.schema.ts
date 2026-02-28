@@ -15,9 +15,7 @@ export const TargetSchema = z.object({
 });
 
 export const BuildConfigSchema = z.object({
-  system: z
-    .enum(["cmake", "make", "west", "idf.py", "platformio", "keil", "iar"])
-    .default("cmake"),
+  system: z.enum(["cmake", "make", "west", "idf.py", "platformio", "keil", "iar"]).default("cmake"),
   build_dir: z.string().default("build"),
   source_dir: z.string().default("src"),
   entry_point: z.string().optional(),

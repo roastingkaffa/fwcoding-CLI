@@ -4,12 +4,24 @@
  */
 
 // Config & loading
-export { loadConfig, loadProject, loadTools, loadAgents, loadSkills } from "./core/config-loader.js";
+export {
+  loadConfig,
+  loadProject,
+  loadTools,
+  loadAgents,
+  loadSkills,
+} from "./core/config-loader.js";
 export { loadSkillMap, getSkill } from "./skills/skill-loader.js";
 export { loadAgentMap, getAgent } from "./agents/agent-loader.js";
 
 // Evidence
-export { createRunSession, writeEvidence, listRecentRuns, loadEvidence, buildHardwareState } from "./core/evidence.js";
+export {
+  createRunSession,
+  writeEvidence,
+  listRecentRuns,
+  loadEvidence,
+  buildHardwareState,
+} from "./core/evidence.js";
 
 // Project context
 export { buildProjectContext, formatContextBlock } from "./utils/project-context.js";
@@ -37,11 +49,21 @@ export { checkChangeBudget, checkProtectedPaths } from "./core/policy.js";
 // ── Phase 4: Commercial Features ──
 
 // Plugin marketplace
-export { loadInstalledPlugins, installPlugin, uninstallPlugin, loadPluginArtifacts } from "./core/plugin-loader.js";
+export {
+  loadInstalledPlugins,
+  installPlugin,
+  uninstallPlugin,
+  loadPluginArtifacts,
+} from "./core/plugin-loader.js";
 export { searchRegistry, getPackageInfo } from "./core/plugin-registry.js";
 
 // License
-export { validateLicense, loadCachedLicense, saveLicenseCache, isFeatureEnabled } from "./core/license-manager.js";
+export {
+  validateLicense,
+  loadCachedLicense,
+  saveLicenseCache,
+  isFeatureEnabled,
+} from "./core/license-manager.js";
 
 // Cloud sync
 export { syncRunToCloud, syncAuditBatch } from "./core/cloud-sync.js";
@@ -60,7 +82,13 @@ export {
 } from "./core/audit-export.js";
 
 // OTA
-export { buildOTABundle, listBundles, deployToTarget, deployToAll, rollback } from "./core/ota-manager.js";
+export {
+  buildOTABundle,
+  listBundles,
+  deployToTarget,
+  deployToAll,
+  rollback,
+} from "./core/ota-manager.js";
 
 // GDB/Debug
 export { runGDBBatch, parseGDBRegisters, parseGDBBacktrace } from "./core/gdb-session.js";
@@ -72,13 +100,29 @@ export { startOpenOCD } from "./core/openocd-session.js";
 export { createScanner, scanEvidence, scanFile } from "./core/secret-scanner.js";
 
 // Supply chain
-export { auditNpmDependencies, verifyPluginIntegrity, verifyAllPlugins, checkToolchainBinaries } from "./core/supply-chain.js";
+export {
+  auditNpmDependencies,
+  verifyPluginIntegrity,
+  verifyAllPlugins,
+  checkToolchainBinaries,
+} from "./core/supply-chain.js";
 
 // Evidence signing
-export { generateSigningKeyPair, signEvidence, verifyEvidenceSignature, loadSigningKey, loadVerifyKey } from "./core/evidence-signer.js";
+export {
+  generateSigningKeyPair,
+  signEvidence,
+  verifyEvidenceSignature,
+  loadSigningKey,
+  loadVerifyKey,
+} from "./core/evidence-signer.js";
 
 // SBOM
-export { generateSBOM, writeSBOM, formatSBOMSummary, generateSBOMForRun } from "./core/sbom-generator.js";
+export {
+  generateSBOM,
+  writeSBOM,
+  formatSBOMSummary,
+  generateSBOMForRun,
+} from "./core/sbom-generator.js";
 
 // Org policy
 export { loadOrgPolicy, mergePolicy, validateRunAgainstPolicy } from "./core/org-policy.js";
@@ -93,7 +137,18 @@ export type { Project, ToolchainConfig } from "./schemas/project.schema.js";
 export type { ToolDef } from "./schemas/tool.schema.js";
 export type { SkillConfig } from "./schemas/skill.schema.js";
 export type { AgentConfig } from "./schemas/agent.schema.js";
-export type { Evidence, ToolResult, BootStatus, Changes, AgenticSession, OTAEvidence, DebugEvidence, EvidenceSignature, EvidenceSBOM, EvidenceSecurity } from "./schemas/evidence.schema.js";
+export type {
+  Evidence,
+  ToolResult,
+  BootStatus,
+  Changes,
+  AgenticSession,
+  OTAEvidence,
+  DebugEvidence,
+  EvidenceSignature,
+  EvidenceSBOM,
+  EvidenceSecurity,
+} from "./schemas/evidence.schema.js";
 export type { MarketplacePackage } from "./schemas/marketplace.schema.js";
 export type { License, CloudConfig } from "./schemas/license.schema.js";
 export type { OTABundle, OTATarget, OTAPolicy } from "./schemas/ota.schema.js";
@@ -106,6 +161,10 @@ export type { SecretScanner, ScanResult } from "./core/secret-scanner.js";
 export type { CycloneDXBOM, CycloneDXComponent } from "./core/sbom-generator.js";
 export type { OrgPolicy } from "./core/org-policy.js";
 export type { CIEnvironment } from "./core/ci-helpers.js";
-export type { NpmAuditResult, PluginIntegrityResult, ToolchainBinaryInfo } from "./core/supply-chain.js";
+export type {
+  NpmAuditResult,
+  PluginIntegrityResult,
+  ToolchainBinaryInfo,
+} from "./core/supply-chain.js";
 export type { SecurityConfig, OrgPolicyConfig } from "./schemas/config.schema.js";
 export type { ProjectDependency } from "./schemas/project.schema.js";

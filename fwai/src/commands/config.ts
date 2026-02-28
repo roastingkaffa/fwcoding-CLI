@@ -13,7 +13,9 @@ export async function handleConfig(_args: string, ctx: AppContext): Promise<void
   console.log(`  Project:     ${ctx.project.project.name}`);
   console.log(`  MCU:         ${ctx.project.project.target.mcu}`);
   console.log(`  Board:       ${ctx.project.project.target.board ?? "(not set)"}`);
-  console.log(`  Serial:      ${ctx.project.project.serial.port} @ ${ctx.project.project.serial.baud}`);
+  console.log(
+    `  Serial:      ${ctx.project.project.serial.port} @ ${ctx.project.project.serial.baud}`
+  );
   log.line();
   console.log("");
 }

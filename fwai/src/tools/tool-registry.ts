@@ -85,7 +85,10 @@ export class ToolRegistry {
   }
 
   /** Create a registry with all built-in tools + firmware tools + optional gdb tool */
-  static createDefault(firmwareTools?: Map<string, ToolDef>, opts?: { enableGdb?: boolean }): ToolRegistry {
+  static createDefault(
+    firmwareTools?: Map<string, ToolDef>,
+    opts?: { enableGdb?: boolean }
+  ): ToolRegistry {
     const registry = new ToolRegistry();
     registry.registerAll(BUILTIN_TOOLS);
     if (firmwareTools) {

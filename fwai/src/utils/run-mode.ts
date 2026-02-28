@@ -12,10 +12,7 @@ export interface RunModeOptions {
  * Resolve the effective run mode from config + CLI flags.
  * CLI flags always take priority over config.
  */
-export function resolveRunMode(
-  configMode: Mode,
-  cliFlags: RunModeOptions
-): RunMode {
+export function resolveRunMode(configMode: Mode, cliFlags: RunModeOptions): RunMode {
   if (cliFlags.ci) return "ci";
   if (cliFlags.interactive) return "interactive";
   return configMode.default;

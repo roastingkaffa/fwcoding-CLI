@@ -27,30 +27,59 @@ export interface CommandDef {
 export const commands: CommandDef[] = [
   { name: "help", description: "List all commands", handler: handleHelp },
   { name: "build", description: "Execute build tool, collect build.log", handler: handleBuild },
-  { name: "flash", description: "Flash firmware to target (with confirmation)", handler: handleFlash },
+  {
+    name: "flash",
+    description: "Flash firmware to target (with confirmation)",
+    handler: handleFlash,
+  },
   { name: "monitor", description: "Capture UART output to uart.log", handler: handleMonitor },
-  { name: "evidence", description: "List recent runs or show run details", handler: handleEvidence },
+  {
+    name: "evidence",
+    description: "List recent runs or show run details",
+    handler: handleEvidence,
+  },
   { name: "agents", description: "List configured agents", handler: handleAgents },
   { name: "skills", description: "List available skills", handler: handleSkills },
   { name: "config", description: "Show current configuration", handler: handleConfig },
   { name: "doctor", description: "Check toolchain & environment health", handler: handleDoctor },
-  { name: "agent", description: "Start scoped agent chat (e.g., /agent bsp)", handler: handleAgentChat },
+  {
+    name: "agent",
+    description: "Start scoped agent chat (e.g., /agent bsp)",
+    handler: handleAgentChat,
+  },
   { name: "audit", description: "Audit trail: export, verify, summary", handler: handleAudit },
   { name: "license", description: "License: status, activate, deactivate", handler: handleLicense },
-  { name: "marketplace", description: "Plugin marketplace: search, install, uninstall, list, info", handler: handleMarketplace },
-  { name: "ota", description: "OTA updates: bundle, deploy, status, rollback, list", handler: handleOTA },
-  { name: "debug", description: "GDB/debug: run, registers, backtrace, openocd", handler: handleDebug },
-  { name: "security", description: "Security: keygen, verify, scan, audit-deps", handler: handleSecurity },
-  { name: "policy", description: "Org policy: show, validate, refresh, diff", handler: handlePolicy },
+  {
+    name: "marketplace",
+    description: "Plugin marketplace: search, install, uninstall, list, info",
+    handler: handleMarketplace,
+  },
+  {
+    name: "ota",
+    description: "OTA updates: bundle, deploy, status, rollback, list",
+    handler: handleOTA,
+  },
+  {
+    name: "debug",
+    description: "GDB/debug: run, registers, backtrace, openocd",
+    handler: handleDebug,
+  },
+  {
+    name: "security",
+    description: "Security: keygen, verify, scan, audit-deps",
+    handler: handleSecurity,
+  },
+  {
+    name: "policy",
+    description: "Org policy: show, validate, refresh, diff",
+    handler: handlePolicy,
+  },
 ];
 
 const commandMap = new Map(commands.map((c) => [c.name, c]));
 
 /** Route a /command to its handler */
-export async function routeCommand(
-  input: string,
-  ctx: AppContext
-): Promise<boolean> {
+export async function routeCommand(input: string, ctx: AppContext): Promise<boolean> {
   const trimmed = input.trim();
   if (!trimmed.startsWith("/")) return false;
 

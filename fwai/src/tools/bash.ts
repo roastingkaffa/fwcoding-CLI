@@ -33,9 +33,7 @@ export const bashTool: AgenticTool = {
   ): Promise<ToolExecutionResult> {
     const command = String(input.command);
     const timeoutSec = input.timeout ? Number(input.timeout) : undefined;
-    const timeoutMs = timeoutSec
-      ? Math.min(timeoutSec * 1000, MAX_TIMEOUT_MS)
-      : DEFAULT_TIMEOUT_MS;
+    const timeoutMs = timeoutSec ? Math.min(timeoutSec * 1000, MAX_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS;
 
     try {
       const output = execSync(command, {
@@ -49,9 +47,8 @@ export const bashTool: AgenticTool = {
 
       // Truncate very large outputs
       const maxLen = 50_000;
-      const truncated = output.length > maxLen
-        ? output.slice(0, maxLen) + "\n... (output truncated)"
-        : output;
+      const truncated =
+        output.length > maxLen ? output.slice(0, maxLen) + "\n... (output truncated)" : output;
 
       return {
         content: truncated || "(no output)",
@@ -63,9 +60,10 @@ export const bashTool: AgenticTool = {
         const execErr = err as { stdout: string; stderr: string; status: number | null };
         const combined = (execErr.stdout || "") + (execErr.stderr || "");
         const maxLen = 50_000;
-        const truncated = combined.length > maxLen
-          ? combined.slice(0, maxLen) + "\n... (output truncated)"
-          : combined;
+        const truncated =
+          combined.length > maxLen
+            ? combined.slice(0, maxLen) + "\n... (output truncated)"
+            : combined;
 
         return {
           content: `Command exited with code ${execErr.status ?? 1}:\n${truncated || "(no output)"}`,

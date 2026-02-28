@@ -6,11 +6,13 @@ export const MarketplacePackageSchema = z.object({
   description: z.string().optional(),
   author: z.string().optional(),
   registry: z.string().url().optional(),
-  artifacts: z.object({
-    tools: z.array(z.string()).default([]),
-    skills: z.array(z.string()).default([]),
-    agents: z.array(z.string()).default([]),
-  }).default({}),
+  artifacts: z
+    .object({
+      tools: z.array(z.string()).default([]),
+      skills: z.array(z.string()).default([]),
+      agents: z.array(z.string()).default([]),
+    })
+    .default({}),
   checksum: z.string().optional(),
 });
 

@@ -33,9 +33,7 @@ export const searchGrepTool: AgenticTool = {
     context: ToolExecutionContext
   ): Promise<ToolExecutionResult> {
     const pattern = String(input.pattern);
-    const searchPath = input.path
-      ? path.resolve(context.cwd, String(input.path))
-      : context.cwd;
+    const searchPath = input.path ? path.resolve(context.cwd, String(input.path)) : context.cwd;
     const glob = input.glob ? String(input.glob) : undefined;
 
     try {
@@ -58,7 +56,8 @@ export const searchGrepTool: AgenticTool = {
       const maxLines = 200;
       const truncated = lines.length > maxLines;
       const result = truncated
-        ? lines.slice(0, maxLines).join("\n") + `\n... (${lines.length - maxLines} more matches truncated)`
+        ? lines.slice(0, maxLines).join("\n") +
+          `\n... (${lines.length - maxLines} more matches truncated)`
         : lines.join("\n");
 
       return {

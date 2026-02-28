@@ -30,9 +30,7 @@ export function initWorkspace(options: InitOptions = {}): void {
 
   if (workspaceExists(options.cwd)) {
     if (!options.force) {
-      log.error(
-        `.fwai/ already exists. Use --force to overwrite.`
-      );
+      log.error(`.fwai/ already exists. Use --force to overwrite.`);
       process.exit(1);
     }
     log.warn("Overwriting existing .fwai/ directory (--force)");
@@ -61,7 +59,9 @@ export function initWorkspace(options: InitOptions = {}): void {
     loadConfig(options.cwd);
   } catch (e) {
     if (e instanceof ZodError) {
-      errors.push(`config.yaml validation failed:\n${e.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n")}`);
+      errors.push(
+        `config.yaml validation failed:\n${e.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n")}`
+      );
     } else {
       errors.push(`config.yaml: ${e}`);
     }
@@ -70,7 +70,9 @@ export function initWorkspace(options: InitOptions = {}): void {
     loadProject(options.cwd);
   } catch (e) {
     if (e instanceof ZodError) {
-      errors.push(`project.yaml validation failed:\n${e.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n")}`);
+      errors.push(
+        `project.yaml validation failed:\n${e.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n")}`
+      );
     } else {
       errors.push(`project.yaml: ${e}`);
     }

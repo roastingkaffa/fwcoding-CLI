@@ -32,9 +32,7 @@ export const writeFileTool: AgenticTool = {
     const filePath = String(input.file_path);
     const content = String(input.content);
 
-    const resolved = path.isAbsolute(filePath)
-      ? filePath
-      : path.resolve(context.cwd, filePath);
+    const resolved = path.isAbsolute(filePath) ? filePath : path.resolve(context.cwd, filePath);
 
     // Check protected paths
     const relative = path.relative(context.cwd, resolved);

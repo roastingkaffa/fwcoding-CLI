@@ -142,19 +142,18 @@ program
   });
 
 // fwai (default: start REPL)
-program
-  .action(async () => {
-    requireWorkspace();
-    const ctx = await buildAppContext();
+program.action(async () => {
+  requireWorkspace();
+  const ctx = await buildAppContext();
 
-    const mode = resolveRunMode(ctx.config.mode, {});
-    if (!isReplAllowed(mode)) {
-      log.error("REPL not allowed in CI mode. Use `fwai run <skill>` instead.");
-      process.exit(5);
-    }
+  const mode = resolveRunMode(ctx.config.mode, {});
+  if (!isReplAllowed(mode)) {
+    log.error("REPL not allowed in CI mode. Use `fwai run <skill>` instead.");
+    process.exit(5);
+  }
 
-    await startRepl(ctx);
-  });
+  await startRepl(ctx);
+});
 
 /** Emit a JSON summary to stdout (bypasses logger quiet gate) */
 function outputJsonSummary(session: RunSession | null, exitCode: number): void {
@@ -173,15 +172,14 @@ function outputJsonSummary(session: RunSession | null, exitCode: number): void {
     run_id: session?.runId ?? null,
     status: statusMap[exitCode] ?? "error",
     exit_code: exitCode,
-    tools: session?.toolResults.map((t) => ({
-      tool: t.tool,
-      status: t.status,
-      duration_ms: t.duration_ms,
-    })) ?? [],
+    tools:
+      session?.toolResults.map((t) => ({
+        tool: t.tool,
+        status: t.status,
+        duration_ms: t.duration_ms,
+      })) ?? [],
     boot_status: session?.bootStatus ?? null,
-    evidence_path: session?.runDir
-      ? `${session.runDir}/evidence.json`
-      : null,
+    evidence_path: session?.runDir ? `${session.runDir}/evidence.json` : null,
     estimated_cost_usd: null,
   };
 
@@ -211,10 +209,7 @@ async function buildAppContext(
   // Disable colors in CI or when stdout is not a TTY
   const colorEnabled = config.logging.color && !cliFlags.ci && (process.stdout.isTTY ?? false);
 
-  configureLogger(
-    config.logging.level,
-    colorEnabled
-  );
+  configureLogger(config.logging.level, colorEnabled);
 
   // Read compiler version from doctor cache
   let compilerVersion: string | undefined;

@@ -90,7 +90,10 @@ export async function handleAgentChat(args: string, ctx: AppContext): Promise<vo
   await new Promise<void>((resolve) => {
     rl.on("line", async (line) => {
       const input = line.trim();
-      if (!input) { rl.prompt(); return; }
+      if (!input) {
+        rl.prompt();
+        return;
+      }
       if (input === "exit" || input === "/exit") {
         rl.close();
         return;

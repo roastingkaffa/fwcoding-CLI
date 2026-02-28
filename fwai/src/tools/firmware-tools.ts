@@ -16,8 +16,7 @@ export function wrapFirmwareTool(toolDef: ToolDef): AgenticTool {
     definition: {
       name: `fw_${toolDef.name}`,
       description:
-        toolDef.description ??
-        `Firmware tool: ${toolDef.name} — runs: ${toolDef.command}`,
+        toolDef.description ?? `Firmware tool: ${toolDef.name} — runs: ${toolDef.command}`,
       input_schema: {
         type: "object",
         properties: {
@@ -84,8 +83,6 @@ export function wrapFirmwareTool(toolDef: ToolDef): AgenticTool {
 }
 
 /** Wrap all firmware tools from a ToolDef map */
-export function wrapAllFirmwareTools(
-  tools: Map<string, ToolDef>
-): AgenticTool[] {
+export function wrapAllFirmwareTools(tools: Map<string, ToolDef>): AgenticTool[] {
   return Array.from(tools.values()).map(wrapFirmwareTool);
 }

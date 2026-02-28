@@ -4,20 +4,14 @@
  * Supports nested keys like ${project.serial.port}.
  * Unresolved variables are left as-is.
  */
-export function interpolate(
-  template: string,
-  variables: Record<string, unknown>
-): string {
+export function interpolate(template: string, variables: Record<string, unknown>): string {
   return template.replace(/\$\{([^}]+)\}/g, (_match, key: string) => {
     const value = resolveKey(key, variables);
     return value !== undefined ? String(value) : `\${${key}}`;
   });
 }
 
-function resolveKey(
-  key: string,
-  obj: Record<string, unknown>
-): unknown | undefined {
+function resolveKey(key: string, obj: Record<string, unknown>): unknown | undefined {
   const parts = key.split(".");
   let current: unknown = obj;
   for (const part of parts) {

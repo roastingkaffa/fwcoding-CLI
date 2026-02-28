@@ -7,19 +7,13 @@ import { ToolRegistry } from "../tools/tool-registry.js";
 import type { AgenticLoopConfig } from "./agentic-loop.js";
 
 /** Assemble the full system prompt for an agent */
-export function buildAgentSystemPrompt(
-  agent: AgentConfig,
-  projectCtx: ProjectContext
-): string {
+export function buildAgentSystemPrompt(agent: AgentConfig, projectCtx: ProjectContext): string {
   const contextBlock = formatContextBlock(projectCtx);
   return `${contextBlock}\n\n${agent.system_prompt}`;
 }
 
 /** Get the model to use for an agent (resolve "inherit") */
-export function resolveAgentModel(
-  agent: AgentConfig,
-  defaultModel: string
-): string {
+export function resolveAgentModel(agent: AgentConfig, defaultModel: string): string {
   return agent.model === "inherit" ? defaultModel : agent.model;
 }
 
@@ -40,9 +34,7 @@ export function createAgentLoopConfig(
 ): AgenticLoopConfig {
   // Build full registry then scope it to agent-allowed tools
   const fullRegistry = ToolRegistry.createDefault(opts.firmwareTools);
-  const registry = agent.tools
-    ? fullRegistry.createScoped(agent.tools)
-    : fullRegistry;
+  const registry = agent.tools ? fullRegistry.createScoped(agent.tools) : fullRegistry;
 
   // Merge protected paths: policy + agent-specific
   const protectedPaths = [

@@ -1,9 +1,5 @@
 import type { AppContext } from "../repl.js";
-import {
-  validateLicense,
-  saveLicenseCache,
-  clearLicenseCache,
-} from "../core/license-manager.js";
+import { validateLicense, saveLicenseCache, clearLicenseCache } from "../core/license-manager.js";
 import * as log from "../utils/logger.js";
 
 export async function handleLicense(args: string, ctx: AppContext): Promise<void> {
@@ -21,7 +17,8 @@ export async function handleLicense(args: string, ctx: AppContext): Promise<void
     log.info(`Valid:    ${ctx.license.valid}`);
     log.info(`Features: ${Array.from(ctx.license.features).join(", ") || "none"}`);
     if (ctx.license.expiresAt) log.info(`Expires:  ${ctx.license.expiresAt}`);
-    if (ctx.license.seatsAvailable !== undefined) log.info(`Seats:    ${ctx.license.seatsAvailable}`);
+    if (ctx.license.seatsAvailable !== undefined)
+      log.info(`Seats:    ${ctx.license.seatsAvailable}`);
     if (ctx.license.error) log.warn(`Warning:  ${ctx.license.error}`);
     return;
   }

@@ -23,9 +23,15 @@ export async function handleSecurity(args: string, ctx: AppContext): Promise<voi
     }
     case "verify": {
       const runId = parts[1];
-      if (!runId) { log.error("Usage: /security verify <run-id>"); return; }
+      if (!runId) {
+        log.error("Usage: /security verify <run-id>");
+        return;
+      }
       const evidence = loadEvidence(runId);
-      if (!evidence) { log.error(`Evidence not found for run: ${runId}`); return; }
+      if (!evidence) {
+        log.error(`Evidence not found for run: ${runId}`);
+        return;
+      }
       const result = verifyEvidenceSignature(evidence);
       if (result.valid) log.success(`Signature valid for ${runId}`);
       else log.error(`Signature invalid for ${runId}: ${result.error ?? "verification failed"}`);
@@ -33,23 +39,33 @@ export async function handleSecurity(args: string, ctx: AppContext): Promise<voi
     }
     case "verify-all": {
       const runs = listRecentRuns(100);
-      let valid = 0, invalid = 0, unsigned = 0;
+      let valid = 0,
+        invalid = 0,
+        unsigned = 0;
       for (const runId of runs) {
         const evidence = loadEvidence(runId);
         if (!evidence) continue;
-        if (!evidence.signature) { unsigned++; continue; }
+        if (!evidence.signature) {
+          unsigned++;
+          continue;
+        }
         const result = verifyEvidenceSignature(evidence);
         if (result.valid) valid++;
         else invalid++;
       }
-      log.info(`Verification: ${valid} valid, ${invalid} invalid, ${unsigned} unsigned (${runs.length} total)`);
+      log.info(
+        `Verification: ${valid} valid, ${invalid} invalid, ${unsigned} unsigned (${runs.length} total)`
+      );
       break;
     }
     case "scan": {
       const scanner = createScanner(ctx.config.security?.secret_patterns);
       const cwd = process.cwd();
       const srcDir = path.join(cwd, "src");
-      if (!fs.existsSync(srcDir)) { log.warn("No src/ directory found"); return; }
+      if (!fs.existsSync(srcDir)) {
+        log.warn("No src/ directory found");
+        return;
+      }
       let totalSecrets = 0;
       const files = collectSourceFiles(srcDir);
       for (const file of files) {
@@ -90,7 +106,8 @@ function collectSourceFiles(dir: string): string[] {
   const files: string[] = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory() && entry.name !== "node_modules") files.push(...collectSourceFiles(full));
+    if (entry.isDirectory() && entry.name !== "node_modules")
+      files.push(...collectSourceFiles(full));
     else if (/\.(ts|js|c|h|cpp|py|yaml|yml|json)$/.test(entry.name)) files.push(full);
   }
   return files;

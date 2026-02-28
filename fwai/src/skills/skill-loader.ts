@@ -12,10 +12,7 @@ export function loadSkillMap(cwd?: string): Map<string, SkillConfig> {
 }
 
 /** Get a specific skill by name */
-export function getSkill(
-  name: string,
-  cwd?: string
-): SkillConfig | undefined {
+export function getSkill(name: string, cwd?: string): SkillConfig | undefined {
   const map = loadSkillMap(cwd);
   return map.get(name);
 }

@@ -26,11 +26,13 @@ export function isGitRepo(cwd?: string): boolean {
 /** Get current git branch name */
 export function getGitBranch(cwd?: string): string | undefined {
   try {
-    return execSync("git rev-parse --abbrev-ref HEAD", {
-      cwd: cwd ?? process.cwd(),
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim() || undefined;
+    return (
+      execSync("git rev-parse --abbrev-ref HEAD", {
+        cwd: cwd ?? process.cwd(),
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      }).trim() || undefined
+    );
   } catch {
     return undefined;
   }
@@ -39,11 +41,13 @@ export function getGitBranch(cwd?: string): string | undefined {
 /** Get current git commit short hash */
 export function getGitCommit(cwd?: string): string | undefined {
   try {
-    return execSync("git rev-parse --short HEAD", {
-      cwd: cwd ?? process.cwd(),
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim() || undefined;
+    return (
+      execSync("git rev-parse --short HEAD", {
+        cwd: cwd ?? process.cwd(),
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      }).trim() || undefined
+    );
   } catch {
     return undefined;
   }

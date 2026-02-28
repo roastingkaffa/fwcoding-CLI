@@ -112,7 +112,9 @@ export async function handleDoctor(_args: string, ctx: AppContext): Promise<void
   checks.push({
     name: "git repo",
     status: isGitRepo() ? "ok" : "warn",
-    detail: isGitRepo() ? "inside git repository" : "not a git repo (diff/budget features disabled)",
+    detail: isGitRepo()
+      ? "inside git repository"
+      : "not a git repo (diff/budget features disabled)",
   });
 
   // Workspace
@@ -153,8 +155,7 @@ export async function handleDoctor(_args: string, ctx: AppContext): Promise<void
   let warns = 0;
   let fails = 0;
   for (const check of checks) {
-    const icon =
-      check.status === "ok" ? "  ✓" : check.status === "warn" ? "  ⚠" : "  ✗";
+    const icon = check.status === "ok" ? "  ✓" : check.status === "warn" ? "  ⚠" : "  ✗";
     console.log(`${icon}  ${check.name.padEnd(24)} ${check.detail}`);
     if (check.status === "warn") warns++;
     if (check.status === "fail") fails++;

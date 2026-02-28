@@ -112,7 +112,9 @@ export async function handleDebug(args: string, ctx: AppContext): Promise<void> 
     try {
       log.info(`Starting OpenOCD with config: ${config}...`);
       const handle = await startOpenOCD(config);
-      log.success(`OpenOCD running — GDB port: ${handle.gdbPort}, Telnet port: ${handle.telnetPort}`);
+      log.success(
+        `OpenOCD running — GDB port: ${handle.gdbPort}, Telnet port: ${handle.telnetPort}`
+      );
       log.info("Press Ctrl+C to stop OpenOCD.");
       // Keep running until process exits
       await new Promise<void>((resolve) => {

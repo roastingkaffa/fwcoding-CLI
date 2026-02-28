@@ -10,17 +10,21 @@ export const OrgPolicySchema = z.object({
   id: z.string(),
   version: z.string(),
   inherits: z.string().optional(),
-  overrides: z.object({
-    protected_paths: z.array(z.string()).optional(),
-    change_budget: z.object({
-      max_files_changed: z.number().int().positive().optional(),
-      max_lines_changed: z.number().int().positive().optional(),
-    }).optional(),
-    compliance_mode: z.enum(["none", "iso26262", "do178c", "iec62443"]).optional(),
-    require_evidence: z.boolean().optional(),
-    require_signing: z.boolean().optional(),
-    require_sbom: z.boolean().optional(),
-  }).default({}),
+  overrides: z
+    .object({
+      protected_paths: z.array(z.string()).optional(),
+      change_budget: z
+        .object({
+          max_files_changed: z.number().int().positive().optional(),
+          max_lines_changed: z.number().int().positive().optional(),
+        })
+        .optional(),
+      compliance_mode: z.enum(["none", "iso26262", "do178c", "iec62443"]).optional(),
+      require_evidence: z.boolean().optional(),
+      require_signing: z.boolean().optional(),
+      require_sbom: z.boolean().optional(),
+    })
+    .default({}),
   required_compliance_mode: z.string().optional(),
   required_signing: z.boolean().default(false),
   required_sbom: z.boolean().default(false),
@@ -57,7 +61,9 @@ export function loadOrgPolicy(config: Config, cwd: string): OrgPolicy | null {
         if (age < (orgCfg.refresh_interval_sec ?? 3600)) {
           return OrgPolicySchema.parse(cached.policy);
         }
-      } catch { /* stale cache */ }
+      } catch {
+        /* stale cache */
+      }
     }
     // Actual fetch would happen here in production — for now, return null
     log.debug(`Remote org policy fetch not yet implemented for: ${orgCfg.url}`);
@@ -143,7 +149,9 @@ export function validateRunAgainstPolicy(
   if (mergedPolicy.max_llm_cost_per_run !== undefined) {
     const cost = globalTracer.getEstimatedCost() ?? 0;
     if (cost > mergedPolicy.max_llm_cost_per_run) {
-      violations.push(`LLM cost $${cost.toFixed(4)} exceeds budget $${mergedPolicy.max_llm_cost_per_run}`);
+      violations.push(
+        `LLM cost $${cost.toFixed(4)} exceeds budget $${mergedPolicy.max_llm_cost_per_run}`
+      );
     }
   }
 

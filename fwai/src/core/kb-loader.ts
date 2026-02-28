@@ -133,10 +133,7 @@ export function formatKBContext(
 ): string {
   if (results.length === 0) return "";
 
-  const lines: string[] = [
-    "## Knowledge Base Context (auto-injected)",
-    "",
-  ];
+  const lines: string[] = ["## Knowledge Base Context (auto-injected)", ""];
 
   let totalTokens = 20; // Header overhead
 
