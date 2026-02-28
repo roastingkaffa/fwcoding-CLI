@@ -1,3 +1,5 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { runAgenticLoop } from "../../../src/agents/agentic-loop.js";
 import type { LLMProvider } from "../../../src/providers/provider.js";
 import type { ToolCompletionResponse, ToolCompletionRequest, StreamCallbacks } from "../../../src/providers/tool-types.js";
@@ -56,9 +58,9 @@ describe("runAgenticLoop", () => {
       context: { cwd: "/tmp" },
     });
 
-    expect(result.finalText).toBe("Hello from agent!");
-    expect(result.toolCallCount).toBe(0);
-    expect(result.agenticCalls).toHaveLength(0);
+    assert.equal(result.finalText, "Hello from agent!");
+    assert.equal(result.toolCallCount, 0);
+    assert.equal(result.agenticCalls.length, 0);
   });
 
   it("handles tool_use then end_turn", async () => {
@@ -95,12 +97,12 @@ describe("runAgenticLoop", () => {
       onToolCall: (name) => toolCalls.push(name),
     });
 
-    expect(result.finalText).toBe("The file contains test data.");
-    expect(result.toolCallCount).toBe(1);
-    expect(result.agenticCalls).toHaveLength(1);
-    expect(result.agenticCalls[0].tool_name).toBe("read_file");
-    expect(result.filesRead).toContain("/tmp/test.txt");
-    expect(toolCalls).toEqual(["read_file"]); // onToolCall called during tool execution
+    assert.equal(result.finalText, "The file contains test data.");
+    assert.equal(result.toolCallCount, 1);
+    assert.equal(result.agenticCalls.length, 1);
+    assert.equal(result.agenticCalls[0].tool_name, "read_file");
+    assert.ok(result.filesRead.includes("/tmp/test.txt"));
+    assert.deepEqual(toolCalls, ["read_file"]); // onToolCall called during tool execution
   });
 
   it("respects maxIterations safety limit", async () => {
@@ -132,8 +134,8 @@ describe("runAgenticLoop", () => {
     });
 
     // Should stop after 3 iterations
-    expect(result.toolCallCount).toBe(3);
-    expect(result.agenticCalls).toHaveLength(3);
+    assert.equal(result.toolCallCount, 3);
+    assert.equal(result.agenticCalls.length, 3);
   });
 
   it("tracks filesRead and filesWritten via metadata", async () => {
@@ -177,8 +179,8 @@ describe("runAgenticLoop", () => {
       context: { cwd: "/tmp" },
     });
 
-    expect(result.filesRead).toContain("/tmp/test.txt");
-    expect(result.filesWritten).toContain("/tmp/output.c");
-    expect(result.toolCallCount).toBe(2);
+    assert.ok(result.filesRead.includes("/tmp/test.txt"));
+    assert.ok(result.filesWritten.includes("/tmp/output.c"));
+    assert.equal(result.toolCallCount, 2);
   });
 });

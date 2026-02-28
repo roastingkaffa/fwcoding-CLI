@@ -1,54 +1,60 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { interpolate } from "../../../src/utils/interpolate.js";
 
 describe("interpolate", () => {
   it("substitutes simple variables", () => {
-    expect(interpolate("Hello ${name}", { name: "world" })).toBe("Hello world");
+    assert.equal(interpolate("Hello ${name}", { name: "world" }), "Hello world");
   });
 
   it("substitutes multiple variables", () => {
-    expect(
-      interpolate("${greeting} ${name}!", { greeting: "Hi", name: "fwai" })
-    ).toBe("Hi fwai!");
+    assert.equal(
+      interpolate("${greeting} ${name}!", { greeting: "Hi", name: "fwai" }),
+      "Hi fwai!"
+    );
   });
 
   it("supports nested keys", () => {
     const vars = {
       project: { serial: { port: "/dev/ttyUSB0" }, target: { mcu: "STM32F407" } },
     };
-    expect(interpolate("Port: ${project.serial.port}", vars)).toBe(
+    assert.equal(
+      interpolate("Port: ${project.serial.port}", vars),
       "Port: /dev/ttyUSB0"
     );
-    expect(interpolate("MCU: ${project.target.mcu}", vars)).toBe(
+    assert.equal(
+      interpolate("MCU: ${project.target.mcu}", vars),
       "MCU: STM32F407"
     );
   });
 
   it("leaves unresolved variables as-is", () => {
-    expect(interpolate("${missing}", {})).toBe("${missing}");
-    expect(interpolate("${a.b.c}", { a: { b: {} } })).toBe("${a.b.c}");
+    assert.equal(interpolate("${missing}", {}), "${missing}");
+    assert.equal(interpolate("${a.b.c}", { a: { b: {} } }), "${a.b.c}");
   });
 
   it("handles templates with no variables", () => {
-    expect(interpolate("no vars here", { foo: "bar" })).toBe("no vars here");
+    assert.equal(interpolate("no vars here", { foo: "bar" }), "no vars here");
   });
 
   it("converts non-string values to string", () => {
-    expect(interpolate("count: ${n}", { n: 42 })).toBe("count: 42");
-    expect(interpolate("flag: ${b}", { b: true })).toBe("flag: true");
+    assert.equal(interpolate("count: ${n}", { n: 42 }), "count: 42");
+    assert.equal(interpolate("flag: ${b}", { b: true }), "flag: true");
   });
 
   it("handles empty template", () => {
-    expect(interpolate("", { x: "y" })).toBe("");
+    assert.equal(interpolate("", { x: "y" }), "");
   });
 
   it("handles adjacent variables", () => {
-    expect(interpolate("${a}${b}", { a: "hello", b: "world" })).toBe(
+    assert.equal(
+      interpolate("${a}${b}", { a: "hello", b: "world" }),
       "helloworld"
     );
   });
 
   it("handles null/undefined nested values gracefully", () => {
-    expect(interpolate("${a.b}", { a: null })).toBe("${a.b}");
-    expect(interpolate("${a.b}", { a: undefined })).toBe("${a.b}");
+    assert.equal(interpolate("${a.b}", { a: null }), "${a.b}");
+    assert.equal(interpolate("${a.b}", { a: undefined }), "${a.b}");
   });
 });

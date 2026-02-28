@@ -1,3 +1,5 @@
+import { describe, it, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 import { LLMTracer, LLMCallTimer, estimateCost } from "../../../src/utils/llm-tracer.js";
 
 describe("LLMTracer", () => {
@@ -9,8 +11,8 @@ describe("LLMTracer", () => {
 
   it("configure sets provider and model", () => {
     tracer.configure("anthropic", "claude-sonnet-4-20250514");
-    expect(tracer.getProvider()).toBe("anthropic");
-    expect(tracer.getModel()).toBe("claude-sonnet-4-20250514");
+    assert.equal(tracer.getProvider(), "anthropic");
+    assert.equal(tracer.getModel(), "claude-sonnet-4-20250514");
   });
 
   it("record adds a call and getCalls returns copy", () => {
@@ -25,13 +27,13 @@ describe("LLMTracer", () => {
     });
 
     const calls = tracer.getCalls();
-    expect(calls).toHaveLength(1);
-    expect(calls[0].purpose).toBe("test");
-    expect(calls[0].input_tokens).toBe(100);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].purpose, "test");
+    assert.equal(calls[0].input_tokens, 100);
 
     // Verify it returns a copy
     calls.push({} as any);
-    expect(tracer.getCalls()).toHaveLength(1);
+    assert.equal(tracer.getCalls().length, 1);
   });
 
   it("accumulates token totals across multiple calls", () => {
@@ -53,8 +55,8 @@ describe("LLMTracer", () => {
       timestamp: new Date().toISOString(),
     });
 
-    expect(tracer.getTotalInputTokens()).toBe(300);
-    expect(tracer.getTotalOutputTokens()).toBe(150);
+    assert.equal(tracer.getTotalInputTokens(), 300);
+    assert.equal(tracer.getTotalOutputTokens(), 150);
   });
 
   it("reset clears all calls", () => {
@@ -66,9 +68,9 @@ describe("LLMTracer", () => {
       duration_ms: 1,
       timestamp: new Date().toISOString(),
     });
-    expect(tracer.getCalls()).toHaveLength(1);
+    assert.equal(tracer.getCalls().length, 1);
     tracer.reset();
-    expect(tracer.getCalls()).toHaveLength(0);
+    assert.equal(tracer.getCalls().length, 0);
   });
 
   it("getEstimatedCost uses configured model", () => {
@@ -83,8 +85,8 @@ describe("LLMTracer", () => {
     });
     // sonnet: 3.0 input + 15.0 output = $18.0 per 1M each
     const cost = tracer.getEstimatedCost();
-    expect(cost).toBeDefined();
-    expect(cost).toBeCloseTo(18.0, 1);
+    assert.ok(cost !== undefined);
+    assert.ok(Math.abs(cost! - 18.0) < Math.pow(10, -1));
   });
 });
 
@@ -97,13 +99,13 @@ describe("LLMCallTimer", () => {
     timer.finish(50, 25, { extra: "data" });
 
     const calls = tracer.getCalls();
-    expect(calls).toHaveLength(1);
-    expect(calls[0].purpose).toBe("timer_test");
-    expect(calls[0].model).toBe("claude-sonnet-4-20250514");
-    expect(calls[0].input_tokens).toBe(50);
-    expect(calls[0].output_tokens).toBe(25);
-    expect(calls[0].duration_ms).toBeGreaterThanOrEqual(0);
-    expect(calls[0].metadata).toEqual({ extra: "data" });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].purpose, "timer_test");
+    assert.equal(calls[0].model, "claude-sonnet-4-20250514");
+    assert.equal(calls[0].input_tokens, 50);
+    assert.equal(calls[0].output_tokens, 25);
+    assert.ok(calls[0].duration_ms >= 0);
+    assert.deepEqual(calls[0].metadata, { extra: "data" });
   });
 });
 
@@ -111,22 +113,22 @@ describe("estimateCost", () => {
   it("returns cost for known models", () => {
     // Claude Sonnet: 3.0 in / 15.0 out per 1M
     const cost = estimateCost("claude-sonnet-4-20250514", 1000, 500);
-    expect(cost).toBeDefined();
-    expect(cost).toBeCloseTo((1000 * 3.0 + 500 * 15.0) / 1_000_000, 6);
+    assert.ok(cost !== undefined);
+    assert.ok(Math.abs(cost! - (1000 * 3.0 + 500 * 15.0) / 1_000_000) < Math.pow(10, -6));
   });
 
   it("returns undefined for unknown models", () => {
-    expect(estimateCost("unknown-model-xyz", 100, 50)).toBeUndefined();
+    assert.equal(estimateCost("unknown-model-xyz", 100, 50), undefined);
   });
 
   it("handles gpt-4o pricing", () => {
     // gpt-4o: 2.5 in / 10.0 out per 1M
     const cost = estimateCost("gpt-4o", 2000, 1000);
-    expect(cost).toBeCloseTo((2000 * 2.5 + 1000 * 10.0) / 1_000_000, 6);
+    assert.ok(Math.abs(cost! - (2000 * 2.5 + 1000 * 10.0) / 1_000_000) < Math.pow(10, -6));
   });
 
   it("handles zero tokens", () => {
     const cost = estimateCost("claude-sonnet-4-20250514", 0, 0);
-    expect(cost).toBe(0);
+    assert.equal(cost, 0);
   });
 });

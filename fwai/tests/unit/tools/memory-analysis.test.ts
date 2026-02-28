@@ -1,3 +1,5 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   parseSizeOutput,
   parseMapFile,
@@ -12,11 +14,11 @@ describe("parseSizeOutput", () => {
   24576\t   1024\t   2048\t  27648\t   6c00\tfirmware.elf`;
 
     const result = parseSizeOutput(output);
-    expect(result).not.toBeNull();
-    expect(result!.text).toBe(24576);
-    expect(result!.data).toBe(1024);
-    expect(result!.bss).toBe(2048);
-    expect(result!.total).toBe(27648);
+    assert.ok(result !== null);
+    assert.equal(result!.text, 24576);
+    assert.equal(result!.data, 1024);
+    assert.equal(result!.bss, 2048);
+    assert.equal(result!.total, 27648);
   });
 
   it("handles extra whitespace", () => {
@@ -24,15 +26,15 @@ describe("parseSizeOutput", () => {
    8192     512    1024    9728    2600 app.elf`;
 
     const result = parseSizeOutput(output);
-    expect(result).not.toBeNull();
-    expect(result!.text).toBe(8192);
-    expect(result!.data).toBe(512);
-    expect(result!.bss).toBe(1024);
+    assert.ok(result !== null);
+    assert.equal(result!.text, 8192);
+    assert.equal(result!.data, 512);
+    assert.equal(result!.bss, 1024);
   });
 
   it("returns null for unparseable input", () => {
-    expect(parseSizeOutput("not valid output")).toBeNull();
-    expect(parseSizeOutput("")).toBeNull();
+    assert.equal(parseSizeOutput("not valid output"), null);
+    assert.equal(parseSizeOutput(""), null);
   });
 });
 
@@ -45,21 +47,21 @@ describe("parseMapFile", () => {
 .debug_info     0x00000000    0x1000
 `;
     const sections = parseMapFile(content);
-    expect(sections).toHaveLength(4);
-    expect(sections[0]).toEqual({ name: ".text", address: 0x08000000, size: 0x3000 });
-    expect(sections[1]).toEqual({ name: ".data", address: 0x20000000, size: 0x400 });
-    expect(sections[2]).toEqual({ name: ".bss", address: 0x20000400, size: 0x200 });
+    assert.equal(sections.length, 4);
+    assert.deepEqual(sections[0], { name: ".text", address: 0x08000000, size: 0x3000 });
+    assert.deepEqual(sections[1], { name: ".data", address: 0x20000000, size: 0x400 });
+    assert.deepEqual(sections[2], { name: ".bss", address: 0x20000400, size: 0x200 });
   });
 
   it("skips zero-size sections", () => {
     const content = `.empty          0x00000000    0x0\n.text           0x08000000    0x100`;
     const sections = parseMapFile(content);
-    expect(sections).toHaveLength(1);
-    expect(sections[0].name).toBe(".text");
+    assert.equal(sections.length, 1);
+    assert.equal(sections[0].name, ".text");
   });
 
   it("returns empty array for no sections", () => {
-    expect(parseMapFile("no sections here")).toEqual([]);
+    assert.deepEqual(parseMapFile("no sections here"), []);
   });
 });
 
@@ -72,14 +74,14 @@ describe("computeMemoryReport", () => {
     );
 
     // Flash = text + data = 25600
-    expect(report.flash_used).toBe(25600);
-    expect(report.flash_total).toBe(524288);
+    assert.equal(report.flash_used, 25600);
+    assert.equal(report.flash_total, 524288);
     // RAM = data + bss = 3072
-    expect(report.ram_used).toBe(3072);
-    expect(report.ram_total).toBe(131072);
+    assert.equal(report.ram_used, 3072);
+    assert.equal(report.ram_total, 131072);
     // Percentages
-    expect(report.flash_percent).toBeCloseTo(4.88, 1);
-    expect(report.ram_percent).toBeCloseTo(2.34, 1);
+    assert.ok(Math.abs(report.flash_percent - 4.88) < Math.pow(10, -1));
+    assert.ok(Math.abs(report.ram_percent - 2.34) < Math.pow(10, -1));
   });
 
   it("handles zero totals", () => {
@@ -88,8 +90,8 @@ describe("computeMemoryReport", () => {
       0,
       0
     );
-    expect(report.flash_percent).toBe(0);
-    expect(report.ram_percent).toBe(0);
+    assert.equal(report.flash_percent, 0);
+    assert.equal(report.ram_percent, 0);
   });
 
   it("includes optional sections", () => {
@@ -100,32 +102,32 @@ describe("computeMemoryReport", () => {
       1024,
       sections
     );
-    expect(report.sections).toHaveLength(1);
+    assert.equal(report.sections!.length, 1);
   });
 });
 
 describe("parseSizeString", () => {
   it("parses kilobytes", () => {
-    expect(parseSizeString("512K")).toBe(524288);
-    expect(parseSizeString("128k")).toBe(131072);
+    assert.equal(parseSizeString("512K"), 524288);
+    assert.equal(parseSizeString("128k"), 131072);
   });
 
   it("parses megabytes", () => {
-    expect(parseSizeString("1M")).toBe(1048576);
-    expect(parseSizeString("2m")).toBe(2097152);
+    assert.equal(parseSizeString("1M"), 1048576);
+    assert.equal(parseSizeString("2m"), 2097152);
   });
 
   it("parses plain bytes", () => {
-    expect(parseSizeString("1024")).toBe(1024);
+    assert.equal(parseSizeString("1024"), 1024);
   });
 
   it("handles KB/MB suffix", () => {
-    expect(parseSizeString("512KB")).toBe(524288);
+    assert.equal(parseSizeString("512KB"), 524288);
   });
 
   it("returns 0 for invalid input", () => {
-    expect(parseSizeString("abc")).toBe(0);
-    expect(parseSizeString("")).toBe(0);
+    assert.equal(parseSizeString("abc"), 0);
+    assert.equal(parseSizeString(""), 0);
   });
 });
 
@@ -137,8 +139,8 @@ describe("formatMemoryTable", () => {
       128 * 1024
     );
     const table = formatMemoryTable(report);
-    expect(table).toContain("Flash");
-    expect(table).toContain("RAM");
-    expect(table).toContain("%");
+    assert.ok(table.includes("Flash"));
+    assert.ok(table.includes("RAM"));
+    assert.ok(table.includes("%"));
   });
 });

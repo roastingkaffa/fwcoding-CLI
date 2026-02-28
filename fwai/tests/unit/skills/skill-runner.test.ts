@@ -1,3 +1,5 @@
+import { describe, it, beforeEach, afterEach } from "node:test";
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -59,9 +61,9 @@ describe("runSkill", () => {
     };
 
     const session = await runSkill(skill, deps);
-    expect(session.runId).toBeTruthy();
-    expect(session.skill).toBe("test-skill");
-    expect(session.toolResults).toHaveLength(1);
+    assert.ok(session.runId);
+    assert.equal(session.skill, "test-skill");
+    assert.equal(session.toolResults.length, 1);
   });
 
   it("aborts on step failure when on_fail is abort", async () => {
@@ -82,8 +84,8 @@ describe("runSkill", () => {
 
     const session = await runSkill(skill, deps);
     // Flash should NOT have run because build failed with abort
-    expect(session.toolResults).toHaveLength(1);
-    expect(session.toolResults[0].tool).toBe("build");
+    assert.equal(session.toolResults.length, 1);
+    assert.equal(session.toolResults[0].tool, "build");
   });
 
   it("continues on step failure when on_fail is continue", async () => {
@@ -103,7 +105,7 @@ describe("runSkill", () => {
     };
 
     const session = await runSkill(skill, deps);
-    expect(session.toolResults).toHaveLength(2);
+    assert.equal(session.toolResults.length, 2);
   });
 
   it("skips missing tools gracefully", async () => {
@@ -120,7 +122,7 @@ describe("runSkill", () => {
 
     const session = await runSkill(skill, deps);
     // Should not crash, just log error and continue
-    expect(session.toolResults).toHaveLength(0);
+    assert.equal(session.toolResults.length, 0);
   });
 
   it("handles evidence step", async () => {
@@ -138,9 +140,9 @@ describe("runSkill", () => {
     };
 
     const session = await runSkill(skill, deps);
-    expect(session.toolResults).toHaveLength(1);
+    assert.equal(session.toolResults.length, 1);
     // Evidence should have been written
     const evidencePath = path.join(session.runDir, "evidence.json");
-    expect(fs.existsSync(evidencePath)).toBe(true);
+    assert.equal(fs.existsSync(evidencePath), true);
   });
 });

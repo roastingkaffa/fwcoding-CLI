@@ -1,3 +1,5 @@
+import { describe, it, beforeEach } from "node:test";
+import assert from "node:assert/strict";
 import {
   startSpinner,
   updateSpinner,
@@ -11,116 +13,118 @@ import {
 // ora auto-disables on non-TTY (test environment), so spinners are
 // created but produce no visible output. We test state management only.
 
-beforeEach(() => {
-  // Clean up any leftover spinner state
-  stopSpinner();
-});
-
-describe("startSpinner", () => {
-  it("creates an active spinner", () => {
-    startSpinner("Loading...");
-    expect(isSpinnerActive()).toBe(true);
+describe("ui", () => {
+  beforeEach(() => {
+    // Clean up any leftover spinner state
     stopSpinner();
   });
 
-  it("stops previous spinner before starting a new one", () => {
-    startSpinner("First");
-    expect(isSpinnerActive()).toBe(true);
-    startSpinner("Second");
-    // Still active (new spinner replaced old one)
-    expect(isSpinnerActive()).toBe(true);
-    stopSpinner();
-  });
-});
-
-describe("updateSpinner", () => {
-  it("does not throw when spinner is active", () => {
-    startSpinner("Initial");
-    expect(() => updateSpinner("Updated")).not.toThrow();
-    stopSpinner();
-  });
-
-  it("is a no-op when no spinner active", () => {
-    expect(() => updateSpinner("Nothing")).not.toThrow();
-    expect(isSpinnerActive()).toBe(false);
-  });
-});
-
-describe("succeedSpinner", () => {
-  it("marks spinner as inactive", () => {
-    startSpinner("Working...");
-    succeedSpinner("Done!");
-    expect(isSpinnerActive()).toBe(false);
-  });
-
-  it("is a no-op when no spinner active", () => {
-    succeedSpinner("Nothing");
-    expect(isSpinnerActive()).toBe(false);
-  });
-});
-
-describe("failSpinner", () => {
-  it("marks spinner as inactive", () => {
-    startSpinner("Working...");
-    failSpinner("Error!");
-    expect(isSpinnerActive()).toBe(false);
-  });
-
-  it("is a no-op when no spinner active", () => {
-    failSpinner("Nothing");
-    expect(isSpinnerActive()).toBe(false);
-  });
-});
-
-describe("stopSpinner", () => {
-  it("stops spinner and marks as inactive", () => {
-    startSpinner("Working...");
-    stopSpinner();
-    expect(isSpinnerActive()).toBe(false);
-  });
-
-  it("is a no-op when no spinner active", () => {
-    expect(() => stopSpinner()).not.toThrow();
-    expect(isSpinnerActive()).toBe(false);
-  });
-});
-
-describe("pauseSpinner", () => {
-  it("returns null when no spinner active", () => {
-    expect(pauseSpinner()).toBeNull();
-  });
-
-  it("returns resume function and stops spinner temporarily", () => {
-    startSpinner("Working...");
-    const resume = pauseSpinner();
-    expect(resume).toBeInstanceOf(Function);
-    // Spinner is paused (stopped) but pauseSpinner doesn't null the ref —
-    // the resume function re-starts the same spinner instance
-    resume!();
-    // After resume, spinner should still be tracked as active
-    expect(isSpinnerActive()).toBe(true);
-    stopSpinner();
-  });
-});
-
-describe("lifecycle", () => {
-  it("handles rapid start-stop cycles", () => {
-    for (let i = 0; i < 10; i++) {
-      startSpinner(`Cycle ${i}`);
+  describe("startSpinner", () => {
+    it("creates an active spinner", () => {
+      startSpinner("Loading...");
+      assert.equal(isSpinnerActive(), true);
       stopSpinner();
-    }
-    expect(isSpinnerActive()).toBe(false);
+    });
+
+    it("stops previous spinner before starting a new one", () => {
+      startSpinner("First");
+      assert.equal(isSpinnerActive(), true);
+      startSpinner("Second");
+      // Still active (new spinner replaced old one)
+      assert.equal(isSpinnerActive(), true);
+      stopSpinner();
+    });
   });
 
-  it("handles succeed after start", () => {
-    startSpinner("Task");
-    succeedSpinner("Completed");
-    expect(isSpinnerActive()).toBe(false);
+  describe("updateSpinner", () => {
+    it("does not throw when spinner is active", () => {
+      startSpinner("Initial");
+      updateSpinner("Updated");
+      stopSpinner();
+    });
+
+    it("is a no-op when no spinner active", () => {
+      updateSpinner("Nothing");
+      assert.equal(isSpinnerActive(), false);
+    });
   });
 
-  it("handles fail after start", () => {
-    startSpinner("Task");
-    failSpinner("Failed");
-    expect(isSpinnerActive()).toBe(false);
+  describe("succeedSpinner", () => {
+    it("marks spinner as inactive", () => {
+      startSpinner("Working...");
+      succeedSpinner("Done!");
+      assert.equal(isSpinnerActive(), false);
+    });
+
+    it("is a no-op when no spinner active", () => {
+      succeedSpinner("Nothing");
+      assert.equal(isSpinnerActive(), false);
+    });
+  });
+
+  describe("failSpinner", () => {
+    it("marks spinner as inactive", () => {
+      startSpinner("Working...");
+      failSpinner("Error!");
+      assert.equal(isSpinnerActive(), false);
+    });
+
+    it("is a no-op when no spinner active", () => {
+      failSpinner("Nothing");
+      assert.equal(isSpinnerActive(), false);
+    });
+  });
+
+  describe("stopSpinner", () => {
+    it("stops spinner and marks as inactive", () => {
+      startSpinner("Working...");
+      stopSpinner();
+      assert.equal(isSpinnerActive(), false);
+    });
+
+    it("is a no-op when no spinner active", () => {
+      stopSpinner();
+      assert.equal(isSpinnerActive(), false);
+    });
+  });
+
+  describe("pauseSpinner", () => {
+    it("returns null when no spinner active", () => {
+      assert.equal(pauseSpinner(), null);
+    });
+
+    it("returns resume function and stops spinner temporarily", () => {
+      startSpinner("Working...");
+      const resume = pauseSpinner();
+      assert.ok(typeof resume === "function");
+      // Spinner is paused (stopped) but pauseSpinner doesn't null the ref —
+      // the resume function re-starts the same spinner instance
+      resume!();
+      // After resume, spinner should still be tracked as active
+      assert.equal(isSpinnerActive(), true);
+      stopSpinner();
+    });
+  });
+
+  describe("lifecycle", () => {
+    it("handles rapid start-stop cycles", () => {
+      for (let i = 0; i < 10; i++) {
+        startSpinner(`Cycle ${i}`);
+        stopSpinner();
+      }
+      assert.equal(isSpinnerActive(), false);
+    });
+
+    it("handles succeed after start", () => {
+      startSpinner("Task");
+      succeedSpinner("Completed");
+      assert.equal(isSpinnerActive(), false);
+    });
+
+    it("handles fail after start", () => {
+      startSpinner("Task");
+      failSpinner("Failed");
+      assert.equal(isSpinnerActive(), false);
+    });
   });
 });

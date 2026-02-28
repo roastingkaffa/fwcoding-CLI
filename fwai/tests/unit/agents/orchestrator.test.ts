@@ -1,3 +1,5 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { runParallelAgents, type AgentTask, type OrchestratorConfig } from "../../../src/agents/orchestrator.js";
 import type { LLMProvider } from "../../../src/providers/provider.js";
 import type { ToolCompletionRequest, ToolCompletionResponse } from "../../../src/providers/tool-types.js";
@@ -55,13 +57,13 @@ describe("runParallelAgents", () => {
     };
 
     const results = await runParallelAgents(tasks, config);
-    expect(results).toHaveLength(2);
-    expect(results[0].label).toBe("agent-1");
-    expect(results[1].label).toBe("agent-2");
-    expect(results[0].result).toBeDefined();
-    expect(results[1].result).toBeDefined();
-    expect(results[0].error).toBeUndefined();
-    expect(results[0].duration_ms).toBeGreaterThanOrEqual(0);
+    assert.equal(results.length, 2);
+    assert.equal(results[0].label, "agent-1");
+    assert.equal(results[1].label, "agent-2");
+    assert.ok(results[0].result !== undefined);
+    assert.ok(results[1].result !== undefined);
+    assert.equal(results[0].error, undefined);
+    assert.ok(results[0].duration_ms >= 0);
   });
 
   it("isolates errors between agents", async () => {
@@ -100,15 +102,15 @@ describe("runParallelAgents", () => {
     };
 
     const results = await runParallelAgents(tasks, config);
-    expect(results).toHaveLength(2);
+    assert.equal(results.length, 2);
 
     // First agent succeeds
-    expect(results[0].result).toBeDefined();
-    expect(results[0].error).toBeUndefined();
+    assert.ok(results[0].result !== undefined);
+    assert.equal(results[0].error, undefined);
 
     // Second agent fails but doesn't crash the orchestrator
-    expect(results[1].error).toBeDefined();
-    expect(results[1].error).toContain("Provider error");
+    assert.ok(results[1].error !== undefined);
+    assert.ok(results[1].error!.includes("Provider error"));
   });
 
   it("respects concurrency limit", async () => {
@@ -149,7 +151,7 @@ describe("runParallelAgents", () => {
     };
 
     const results = await runParallelAgents(tasks, config);
-    expect(results).toHaveLength(5);
-    expect(maxConcurrent).toBeLessThanOrEqual(2);
+    assert.equal(results.length, 5);
+    assert.ok(maxConcurrent <= 2);
   });
 });

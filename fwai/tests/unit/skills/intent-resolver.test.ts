@@ -1,3 +1,5 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { resolveIntent, parseIntentResponse } from "../../../src/skills/intent-resolver.js";
 import type { SkillConfig } from "../../../src/schemas/skill.schema.js";
 
@@ -21,9 +23,9 @@ describe("resolveIntent", () => {
       confidence_threshold_auto: 0.8,
       confidence_threshold_ask: 0.6,
     });
-    expect(result.skill).toBe("bringup");
-    expect(result.confidence).toBe(1.0);
-    expect(result.source).toBe("exact");
+    assert.equal(result.skill, "bringup");
+    assert.equal(result.confidence, 1.0);
+    assert.equal(result.source, "exact");
   });
 
   it("Tier 1: case-insensitive exact match", async () => {
@@ -33,8 +35,8 @@ describe("resolveIntent", () => {
       confidence_threshold_ask: 0.6,
     });
     // Note: exact match uses lowercase comparison
-    expect(result.skill).toBe("bringup");
-    expect(result.source).toBe("exact");
+    assert.equal(result.skill, "bringup");
+    assert.equal(result.source, "exact");
   });
 
   it("Tier 2: keyword trigger match", async () => {
@@ -46,9 +48,9 @@ describe("resolveIntent", () => {
       confidence_threshold_auto: 0.8,
       confidence_threshold_ask: 0.6,
     });
-    expect(result.skill).toBe("bringup");
-    expect(result.confidence).toBe(1.0);
-    expect(result.source).toBe("keyword");
+    assert.equal(result.skill, "bringup");
+    assert.equal(result.confidence, 1.0);
+    assert.equal(result.source, "keyword");
   });
 
   it("Tier 2: picks longest matching trigger", async () => {
@@ -60,7 +62,7 @@ describe("resolveIntent", () => {
       confidence_threshold_auto: 0.8,
       confidence_threshold_ask: 0.6,
     });
-    expect(result.skill).toBe("build-fix");
+    assert.equal(result.skill, "build-fix");
   });
 
   it("fallback with no provider returns null skill", async () => {
@@ -69,9 +71,9 @@ describe("resolveIntent", () => {
       confidence_threshold_auto: 0.8,
       confidence_threshold_ask: 0.6,
     });
-    expect(result.skill).toBeNull();
-    expect(result.confidence).toBe(0);
-    expect(result.source).toBe("llm");
+    assert.equal(result.skill, null);
+    assert.equal(result.confidence, 0);
+    assert.equal(result.source, "llm");
   });
 
   it("fallback with null provider returns null skill", async () => {
@@ -80,46 +82,46 @@ describe("resolveIntent", () => {
       confidence_threshold_auto: 0.8,
       confidence_threshold_ask: 0.6,
     }, null);
-    expect(result.skill).toBeNull();
-    expect(result.confidence).toBe(0);
+    assert.equal(result.skill, null);
+    assert.equal(result.confidence, 0);
   });
 });
 
 describe("parseIntentResponse", () => {
   it("parses valid response", () => {
     const result = parseIntentResponse("bringup|0.92");
-    expect(result.skill).toBe("bringup");
-    expect(result.confidence).toBeCloseTo(0.92);
-    expect(result.source).toBe("llm");
+    assert.equal(result.skill, "bringup");
+    assert.ok(Math.abs(result.confidence - 0.92) < 0.01);
+    assert.equal(result.source, "llm");
   });
 
   it("parses 'none' as null skill", () => {
     const result = parseIntentResponse("none|0.0");
-    expect(result.skill).toBeNull();
-    expect(result.confidence).toBe(0);
+    assert.equal(result.skill, null);
+    assert.equal(result.confidence, 0);
   });
 
   it("clamps confidence to [0, 1]", () => {
     const result = parseIntentResponse("bringup|1.5");
-    expect(result.confidence).toBe(1);
+    assert.equal(result.confidence, 1);
   });
 
   it("returns null skill for unparseable response", () => {
     const result = parseIntentResponse("I think you should run bringup");
-    expect(result.skill).toBeNull();
-    expect(result.confidence).toBe(0);
-    expect(result.raw_response).toBe("I think you should run bringup");
+    assert.equal(result.skill, null);
+    assert.equal(result.confidence, 0);
+    assert.equal(result.raw_response, "I think you should run bringup");
   });
 
   it("handles skill names with hyphens", () => {
     const result = parseIntentResponse("build-fix|0.85");
-    expect(result.skill).toBe("build-fix");
-    expect(result.confidence).toBeCloseTo(0.85);
+    assert.equal(result.skill, "build-fix");
+    assert.ok(Math.abs(result.confidence - 0.85) < 0.01);
   });
 
   it("handles integer confidence", () => {
     const result = parseIntentResponse("bringup|1");
-    expect(result.skill).toBe("bringup");
-    expect(result.confidence).toBe(1);
+    assert.equal(result.skill, "bringup");
+    assert.equal(result.confidence, 1);
   });
 });
