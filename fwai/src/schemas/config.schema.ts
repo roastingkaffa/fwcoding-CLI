@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LicenseSchema, CloudConfigSchema } from "./license.schema.js";
+import { MCPConfigSchema } from "./mcp.schema.js";
 
 export const RetryConfigSchema = z
   .object({
@@ -41,9 +42,7 @@ export const PolicySchema = z.object({
       max_size_mb: z.number().positive().default(50),
     })
     .optional(),
-  compliance_mode: z
-    .enum(["none", "iso26262", "do178c", "iec62443"])
-    .default("none"),
+  compliance_mode: z.enum(["none", "iso26262", "do178c", "iec62443"]).default("none"),
   require_signing: z.boolean().default(false),
   require_sbom: z.boolean().default(false),
   allowed_tools: z.array(z.string()).default([]),
@@ -85,6 +84,28 @@ export const SecurityConfigSchema = z
   })
   .optional();
 
+export const HookConfigSchema = z
+  .object({
+    pre_tool_use: z
+      .array(
+        z.object({
+          pattern: z.string(),
+          decision: z.enum(["allow", "deny", "ask_user"]),
+          reason: z.string().optional(),
+        })
+      )
+      .default([]),
+    post_tool_use: z
+      .array(
+        z.object({
+          pattern: z.string(),
+          action: z.enum(["log"]).default("log"),
+        })
+      )
+      .default([]),
+  })
+  .optional();
+
 export const OrgPolicyConfigSchema = z
   .object({
     url: z.string().optional(),
@@ -113,6 +134,8 @@ export const ConfigSchema = z.object({
   plugins: z.array(z.string()).default([]),
   security: SecurityConfigSchema,
   org_policy: OrgPolicyConfigSchema,
+  hooks: HookConfigSchema,
+  mcp: MCPConfigSchema.optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

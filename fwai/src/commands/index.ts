@@ -16,6 +16,7 @@ import { handleOTA } from "./ota.js";
 import { handleDebug } from "./debug.js";
 import { handleSecurity } from "./security.js";
 import { handlePolicy } from "./policy.js";
+import { handleSessions } from "./sessions.js";
 import * as log from "../utils/logger.js";
 
 export interface CommandDef {
@@ -73,6 +74,11 @@ export const commands: CommandDef[] = [
     name: "policy",
     description: "Org policy: show, validate, refresh, diff",
     handler: handlePolicy,
+  },
+  {
+    name: "sessions",
+    description: "List or delete saved sessions",
+    handler: handleSessions,
   },
 ];
 
