@@ -1,4 +1,7 @@
 import readline from "node:readline";
+import fs from "node:fs";
+import path from "node:path";
+import { getWorkspaceDir } from "./utils/paths.js";
 import type { Config } from "./schemas/config.schema.js";
 import type { Project } from "./schemas/project.schema.js";
 import type { ToolDef } from "./schemas/tool.schema.js";
@@ -38,13 +41,75 @@ export interface AppContext {
 /** Conversation history for multi-turn LLM interaction (supports both text-only and tool-calling) */
 const conversationHistory: ToolMessage[] = [];
 
+/** Build a completer for readline tab-completion */
+function buildCompleter(ctx: AppContext) {
+  // Collect all completable tokens
+  const slashCommands = [
+    "/help",
+    "/build",
+    "/flash",
+    "/monitor",
+    "/evidence",
+    "/agents",
+    "/skills",
+    "/config",
+    "/doctor",
+    "/agent",
+    "/audit",
+    "/license",
+    "/marketplace",
+    "/ota",
+    "/debug",
+    "/security",
+    "/policy",
+    "/sessions",
+    "/exit",
+    "/quit",
+  ];
+
+  // Load skill names
+  let skillNames: string[] = [];
+  try {
+    const skills = loadSkillMap();
+    skillNames = Array.from(skills.keys());
+  } catch {
+    // Skills may not load
+  }
+
+  const allCompletions = [...slashCommands, ...skillNames];
+
+  return (line: string): [string[], string] => {
+    const hits = allCompletions.filter((c) => c.startsWith(line));
+    return [hits.length > 0 ? hits : allCompletions, line];
+  };
+}
+
 /** Start the interactive REPL */
 export async function startRepl(ctx: AppContext): Promise<void> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: "fwai> ",
+    completer: buildCompleter(ctx),
   });
+
+  // Load persistent command history
+  const historyPath = path.join(getWorkspaceDir(), "logs", ".repl_history");
+  const MAX_HISTORY = 1000;
+  try {
+    const logsDir = path.dirname(historyPath);
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    if (fs.existsSync(historyPath)) {
+      const lines = fs
+        .readFileSync(historyPath, "utf-8")
+        .split("\n")
+        .filter((l) => l);
+      // Populate readline history (internal property)
+      (rl as unknown as { history: string[] }).history = lines.reverse().slice(0, MAX_HISTORY);
+    }
+  } catch {
+    // History load failure is non-critical
+  }
 
   console.log("");
   log.heading("Firmware AI CLI v0.1.0");
@@ -136,6 +201,16 @@ export async function startRepl(ctx: AppContext): Promise<void> {
         drainDone = resolve;
       });
     }
+
+    // Save command history
+    try {
+      const history = (rl as unknown as { history: string[] }).history ?? [];
+      const trimmed = history.slice(0, MAX_HISTORY).reverse();
+      fs.writeFileSync(historyPath, trimmed.join("\n") + "\n");
+    } catch {
+      // History save failure is non-critical
+    }
+
     console.log("\nGoodbye!");
     process.exit(0);
   });

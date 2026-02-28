@@ -23,7 +23,12 @@ const program = new Command();
 program
   .name("fwai")
   .description("Firmware AI CLI — AI-assisted firmware development")
-  .version("0.1.0");
+  .version("0.1.0")
+  .option("--model <model>", "Override LLM model")
+  .option("--provider <name>", "Override LLM provider (anthropic|openai)")
+  .option("--max-tokens <n>", "Override max tokens", parseInt)
+  .option("--temperature <n>", "Override temperature", parseFloat)
+  .option("--no-streaming", "Disable streaming output");
 
 // fwai init
 program
@@ -144,7 +149,8 @@ program
 // fwai (default: start REPL)
 program.action(async () => {
   requireWorkspace();
-  const ctx = await buildAppContext();
+  const opts = program.opts();
+  const ctx = await buildAppContext(opts);
 
   const mode = resolveRunMode(ctx.config.mode, {});
   if (!isReplAllowed(mode)) {
@@ -195,9 +201,33 @@ function outputJsonSummary(session: RunSession | null, exitCode: number): void {
 }
 
 async function buildAppContext(
-  cliFlags: { ci?: boolean; yes?: boolean; json?: boolean; quiet?: boolean } = {}
+  cliFlags: {
+    ci?: boolean;
+    yes?: boolean;
+    json?: boolean;
+    quiet?: boolean;
+    model?: string;
+    provider?: string;
+    maxTokens?: number;
+    temperature?: number;
+    streaming?: boolean;
+  } = {}
 ): Promise<AppContext> {
   const config = loadConfig();
+
+  // Apply CLI overrides to provider config
+  if (cliFlags.provider) {
+    (config.provider as Record<string, unknown>).name = cliFlags.provider;
+  }
+  if (cliFlags.model) {
+    config.provider.model = cliFlags.model;
+  }
+  if (cliFlags.maxTokens !== undefined) {
+    (config.provider as Record<string, unknown>).max_tokens = cliFlags.maxTokens;
+  }
+  if (cliFlags.temperature !== undefined) {
+    (config.provider as Record<string, unknown>).temperature = cliFlags.temperature;
+  }
   const project = loadProject();
 
   // Determine output mode from flags
