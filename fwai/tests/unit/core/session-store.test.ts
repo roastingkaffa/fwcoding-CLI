@@ -63,7 +63,35 @@ describe("session-store", () => {
     appendMessage("to-delete", { role: "user", content: "bye" }, tmpDir);
     assert.equal(listSessions(tmpDir).length, 1);
 
-    deleteSession("to-delete", tmpDir);
+    const removed = deleteSession("to-delete", tmpDir);
+    assert.equal(removed, true);
     assert.equal(listSessions(tmpDir).length, 0);
+  });
+
+  it("returns false when deleting a non-existent session", () => {
+    assert.equal(deleteSession("nope", tmpDir), false);
+  });
+
+  it("rejects session ids that could escape the sessions directory", () => {
+    assert.throws(() => deleteSession("../../etc/passwd", tmpDir), /Invalid session id/);
+    assert.throws(() => loadSession("a/b", tmpDir), /Invalid session id/);
+    assert.throws(
+      () => appendMessage("..", { role: "user", content: "x" }, tmpDir),
+      /Invalid session id/
+    );
+  });
+
+  it("skips malformed lines instead of throwing", () => {
+    const id = "corrupt";
+    appendMessage(id, { role: "user", content: "good1" }, tmpDir);
+    // Simulate an interrupted append that left a partial JSON line.
+    const file = path.join(tmpDir, ".fwai", "sessions", `${id}.jsonl`);
+    fs.appendFileSync(file, '{"role":"assistant","content":"trunc\n');
+    appendMessage(id, { role: "user", content: "good2" }, tmpDir);
+
+    const messages = loadSession(id, tmpDir);
+    assert.equal(messages.length, 2);
+    assert.equal(messages[0].content, "good1");
+    assert.equal(messages[1].content, "good2");
   });
 });

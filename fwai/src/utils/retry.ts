@@ -26,9 +26,15 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   shouldRetry: (err: unknown) => boolean,
   config?: Partial<RetryConfig>,
-  onRetry?: (attempt: number, delay: number, err: unknown) => void,
+  onRetry?: (attempt: number, delay: number, err: unknown) => void
 ): Promise<T> {
-  const cfg: RetryConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
+  // Only override defaults with keys that are actually defined — a partial
+  // config with an undefined field (e.g. maxAttempts) must not clobber the
+  // default and disable retries entirely.
+  const overrides = Object.fromEntries(
+    Object.entries(config ?? {}).filter(([, v]) => v !== undefined)
+  );
+  const cfg: RetryConfig = { ...DEFAULT_RETRY_CONFIG, ...overrides };
   let lastError: unknown;
 
   for (let attempt = 0; attempt < cfg.maxAttempts; attempt++) {
@@ -56,7 +62,7 @@ export async function withRetry<T>(
 export function computeDelay(attempt: number, config: RetryConfig): number {
   const base = Math.min(
     config.initialDelayMs * config.backoffMultiplier ** attempt,
-    config.maxDelayMs,
+    config.maxDelayMs
   );
   if (!config.jitter) return base;
   const jitterFactor = 0.75 + Math.random() * 0.5; // ±25%

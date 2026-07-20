@@ -127,10 +127,12 @@ function parseDiffNumstat(numstat: string): {
   let linesRemoved = 0;
 
   for (const line of numstat.trim().split("\n")) {
-    const match = line.match(/^(\d+)\s+(\d+)\s+/);
+    // numstat columns are "<added>\t<removed>\t<path>"; binary files emit
+    // "-\t-\t<path>". Match both so binary/renamed files are still counted.
+    const match = line.match(/^(-|\d+)\s+(-|\d+)\s+\S/);
     if (match) {
-      linesAdded += parseInt(match[1], 10);
-      linesRemoved += parseInt(match[2], 10);
+      linesAdded += match[1] === "-" ? 0 : parseInt(match[1], 10);
+      linesRemoved += match[2] === "-" ? 0 : parseInt(match[2], 10);
       filesChanged++;
     }
   }

@@ -311,4 +311,10 @@ async function buildAppContext(
   };
 }
 
-program.parse();
+// Use parseAsync so async action handlers are awaited — with parse() a rejected
+// handler becomes an unhandled promise rejection (raw stack trace, wrong exit
+// code) instead of a controlled failure.
+program.parseAsync().catch((err) => {
+  log.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});

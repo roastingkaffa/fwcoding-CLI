@@ -4,7 +4,10 @@ import type { Evidence } from "../schemas/evidence.schema.js";
 /** Common secret patterns: API keys, tokens, passwords, PEM blocks, long hex secrets */
 export const DEFAULT_SECRET_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "aws_key", re: /AKIA[0-9A-Z]{16}/g },
-  { name: "openai_key", re: /sk-[A-Za-z0-9]{32,}/g },
+  // Match modern key shapes too: sk-proj-…, sk-svcacct-…, etc. The class must
+  // include '-' and '_' or those never redact (they leak into evidence).
+  { name: "openai_key", re: /sk-[A-Za-z0-9_-]{20,}/g },
+  { name: "anthropic_key", re: /sk-ant-[A-Za-z0-9_-]{20,}/g },
   {
     name: "generic_token",
     re: /(?:token|bearer|authorization)[=:\s]+["']?[A-Za-z0-9\-_.]{20,}["']?/gi,

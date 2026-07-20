@@ -13,6 +13,17 @@ import { FwaiError } from "../utils/errors.js";
 
 const PLUGINS_DIR = "plugins";
 
+/**
+ * Reject plugin names that could escape the plugins directory. Names flow from
+ * CLI args and from untrusted plugin.yaml manifests into path.join and shell
+ * commands, so `../../etc` or names with shell metacharacters must be blocked.
+ */
+function assertSafePluginName(name: string): void {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name.includes("..")) {
+    throw new FwaiError(`Invalid plugin name: ${name}`, "PLUGIN_INVALID_NAME");
+  }
+}
+
 export interface PluginManifest extends MarketplacePackage {
   installedAt?: string;
 }
@@ -42,6 +53,7 @@ export async function installPlugin(
   registryUrl: string,
   cwd?: string
 ): Promise<void> {
+  assertSafePluginName(name);
   const pluginsDir = workspacePath(PLUGINS_DIR, cwd);
   const targetDir = path.join(pluginsDir, name);
 
@@ -69,8 +81,11 @@ export async function installPlugin(
   const tarPath = path.join(targetDir, `${name}.tar.gz`);
   fs.writeFileSync(tarPath, buffer);
 
-  const { execSync } = await import("node:child_process");
-  execSync(`tar -xzf "${tarPath}" -C "${targetDir}" --strip-components=1`, { stdio: "pipe" });
+  const { execFileSync } = await import("node:child_process");
+  // No shell — tarPath/targetDir can't be interpreted as shell syntax.
+  execFileSync("tar", ["-xzf", tarPath, "-C", targetDir, "--strip-components=1"], {
+    stdio: "pipe",
+  });
   fs.unlinkSync(tarPath);
 
   log.success(`Plugin "${name}" installed to ${targetDir}`);
@@ -78,6 +93,7 @@ export async function installPlugin(
 
 /** Uninstall a plugin by removing its directory */
 export function uninstallPlugin(name: string, cwd?: string): void {
+  assertSafePluginName(name);
   const pluginsDir = workspacePath(PLUGINS_DIR, cwd);
   const targetDir = path.join(pluginsDir, name);
 
@@ -102,6 +118,14 @@ export function loadPluginArtifacts(cwd?: string): {
   const pluginsDir = workspacePath(PLUGINS_DIR, cwd);
 
   for (const plugin of plugins) {
+    // plugin.name comes from an untrusted plugin.yaml — don't let it build a
+    // path outside the plugins directory.
+    try {
+      assertSafePluginName(plugin.name);
+    } catch {
+      log.warn(`Skipping plugin with unsafe name: ${plugin.name}`);
+      continue;
+    }
     const pluginDir = path.join(pluginsDir, plugin.name);
 
     // Load tools

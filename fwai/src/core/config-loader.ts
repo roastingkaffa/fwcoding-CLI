@@ -116,7 +116,16 @@ export function resolveConfig(cwd?: string): { config: Config; layers: string[] 
 /** Load and validate .fwai/project.yaml */
 export function loadProject(cwd?: string): Project {
   const filePath = workspacePath("project.yaml", cwd);
-  return loadYaml(filePath, ProjectSchema);
+  try {
+    return loadYaml(filePath, ProjectSchema);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+      throw new Error(`No project found at ${filePath}. Run 'fwai init' to create a workspace.`);
+    }
+    throw new Error(
+      `Failed to load ${filePath}: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 }
 
 /** Load all tool definitions from .fwai/tools/*.tool.yaml + plugin tools */

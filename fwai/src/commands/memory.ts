@@ -5,7 +5,9 @@
  * Reads flash_size/ram_size from project.yaml.
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import type { AppContext } from "../repl.js";
 import {
   parseSizeOutput,
@@ -23,22 +25,21 @@ export async function handleMemory(args: string, ctx: AppContext): Promise<void>
     // Try to auto-detect from project config
     const buildDir = ctx.project.project.build.build_dir;
     if (buildDir) {
-      elfPath = `${buildDir}/*.elf`;
       log.info(`No ELF path specified, looking in ${buildDir}/`);
-
+      // Find .elf files without invoking a shell (no glob injection).
+      let found: string | undefined;
       try {
-        const found = execSync(`ls ${elfPath} 2>/dev/null | head -1`, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-        }).trim();
-        if (found) {
-          elfPath = found;
-        } else {
-          log.error("No .elf files found in build directory. Run /build first or specify path.");
-          return;
-        }
+        found = fs
+          .readdirSync(buildDir)
+          .filter((f) => f.endsWith(".elf"))
+          .sort()[0];
       } catch {
-        log.error("Could not find ELF file. Specify path: /memory path/to/firmware.elf");
+        // build dir missing/unreadable — fall through to the not-found message
+      }
+      if (found) {
+        elfPath = path.join(buildDir, found);
+      } else {
+        log.error("No .elf files found in build directory. Run /build first or specify path.");
         return;
       }
     } else {
@@ -47,9 +48,9 @@ export async function handleMemory(args: string, ctx: AppContext): Promise<void>
     }
   }
 
-  // Run arm-none-eabi-size
+  // Run arm-none-eabi-size (execFileSync — no shell, elfPath can't inject)
   try {
-    const sizeRaw = execSync(`arm-none-eabi-size ${elfPath}`, {
+    const sizeRaw = execFileSync("arm-none-eabi-size", [elfPath], {
       cwd: process.cwd(),
       encoding: "utf-8",
       timeout: 10_000,

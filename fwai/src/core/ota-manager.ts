@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import type { OTABundle, OTATarget, OTAPolicy } from "../schemas/ota.schema.js";
 import * as log from "../utils/logger.js";
 import { ToolExecutionError } from "../utils/errors.js";
@@ -30,7 +30,7 @@ export function buildOTABundle(
   // Convert ELF to binary using objcopy
   const resolvedElf = cwd ? path.resolve(cwd, elfPath) : path.resolve(elfPath);
   try {
-    execSync(`arm-none-eabi-objcopy -O binary "${resolvedElf}" "${binaryPath}"`, {
+    execFileSync("arm-none-eabi-objcopy", ["-O", "binary", resolvedElf, binaryPath], {
       stdio: "pipe",
       cwd,
     });
@@ -135,7 +135,7 @@ export async function deployToTarget(
   try {
     switch (target.transport) {
       case "serial": {
-        execSync(`st-flash write "${bundle.binary_path}" 0x08000000`, {
+        execFileSync("st-flash", ["write", bundle.binary_path, "0x08000000"], {
           stdio: "pipe",
           cwd,
           timeout: 60000,
@@ -153,13 +153,16 @@ export async function deployToTarget(
         break;
       }
       case "board-farm": {
-        execSync(
-          `board-farm flash --device "${target.device_id}" --binary "${bundle.binary_path}"`,
+        execFileSync(
+          "board-farm",
+          ["flash", "--device", target.device_id, "--binary", bundle.binary_path],
           { stdio: "pipe", cwd, timeout: 120000 }
         );
         break;
       }
       case "custom": {
+        // Intentionally a shell command template (the operator opts into a
+        // custom command in project.yaml). Only ${binary} is substituted.
         execSync(target.endpoint.replace("${binary}", bundle.binary_path), {
           stdio: "pipe",
           cwd,

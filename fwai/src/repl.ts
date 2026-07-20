@@ -42,7 +42,7 @@ export interface AppContext {
 const conversationHistory: ToolMessage[] = [];
 
 /** Build a completer for readline tab-completion */
-function buildCompleter(ctx: AppContext) {
+function buildCompleter() {
   // Collect all completable tokens
   const slashCommands = [
     "/help",
@@ -90,7 +90,7 @@ export async function startRepl(ctx: AppContext): Promise<void> {
     input: process.stdin,
     output: process.stdout,
     prompt: "fwai> ",
-    completer: buildCompleter(ctx),
+    completer: buildCompleter(),
   });
 
   // Load persistent command history
@@ -186,8 +186,17 @@ export async function startRepl(ctx: AppContext): Promise<void> {
 
   rl.on("line", (line) => {
     const input = line.trim();
+    // If a handler is currently awaiting confirmation, deliver this line
+    // straight to it. Pushing it onto the queue would deadlock: drainQueue is
+    // blocked awaiting the in-flight handler (processing === true), so the
+    // queued answer would never be fed to confirmResolver. An empty line here
+    // resolves to "not y" (default no), which is the intended behavior.
+    if (confirmResolver) {
+      confirmResolver(input);
+      return;
+    }
     if (!input) {
-      if (!confirmResolver) rl.prompt();
+      rl.prompt();
       return;
     }
     queue.push(input);

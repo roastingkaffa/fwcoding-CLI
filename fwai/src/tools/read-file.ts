@@ -47,6 +47,16 @@ export const readFileTool: AgenticTool = {
       return { content: `Error: Path is a directory, not a file: ${resolved}`, is_error: true };
     }
 
+    // Guard against loading a huge file (e.g. a firmware image or serial log)
+    // fully into memory, which would OOM the process.
+    const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (stat.size > MAX_FILE_BYTES) {
+      return {
+        content: `Error: File is too large to read (${(stat.size / (1024 * 1024)).toFixed(1)} MB, limit ${MAX_FILE_BYTES / (1024 * 1024)} MB): ${resolved}`,
+        is_error: true,
+      };
+    }
+
     try {
       const raw = fs.readFileSync(resolved, "utf-8");
       const allLines = raw.split("\n");

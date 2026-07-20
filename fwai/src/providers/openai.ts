@@ -140,6 +140,8 @@ export class OpenAIProvider implements LLMProvider {
           messages,
           tools,
           stream: true,
+          // Ask for a final usage chunk so token accounting isn't reported as 0.
+          stream_options: { include_usage: true },
         }),
       (err) => {
         const pe = toProviderError(err, "openai");
@@ -154,9 +156,17 @@ export class OpenAIProvider implements LLMProvider {
     let finishReason = "";
     const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
     let contentText = "";
+    let inputTokens = 0;
+    let outputTokens = 0;
 
     try {
       for await (const chunk of stream) {
+        // The final chunk (from include_usage) carries usage and no choices.
+        if (chunk.usage) {
+          inputTokens = chunk.usage.prompt_tokens ?? 0;
+          outputTokens = chunk.usage.completion_tokens ?? 0;
+        }
+
         const delta = chunk.choices[0]?.delta;
         if (!delta) continue;
 
@@ -221,7 +231,7 @@ export class OpenAIProvider implements LLMProvider {
 
     return {
       content,
-      usage: { input_tokens: 0, output_tokens: 0 }, // Stream doesn't provide usage
+      usage: { input_tokens: inputTokens, output_tokens: outputTokens },
       stop_reason: stopReason,
     };
   }

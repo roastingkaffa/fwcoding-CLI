@@ -7,6 +7,7 @@
 
 import { execSync } from "node:child_process";
 import type { AgenticTool, ToolExecutionContext, ToolExecutionResult } from "./tool-interface.js";
+import { shellQuote } from "./shell-escape.js";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -224,7 +225,7 @@ export const memoryAnalysisTool: AgenticTool = {
 
     try {
       // Run arm-none-eabi-size
-      const sizeCmd = `arm-none-eabi-size ${elfPath}`;
+      const sizeCmd = `arm-none-eabi-size ${shellQuote(elfPath)}`;
       const sizeRaw = execSync(sizeCmd, {
         cwd: context.cwd,
         encoding: "utf-8",

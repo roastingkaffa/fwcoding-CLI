@@ -10,7 +10,6 @@ import type {
   ToolCompletionRequest,
   ToolCompletionResponse,
   ContentBlock,
-  ToolMessage,
   StreamCallbacks,
 } from "./tool-types.js";
 import { withRetry } from "../utils/retry.js";
@@ -172,41 +171,51 @@ export class AnthropicProvider implements LLMProvider {
 
     // Wrap entire stream+finalMessage in withRetry — rate limit errors
     // surface from stream.finalMessage(), not from stream setup.
-    const finalMessage = await withRetry(
-      async () => {
-        const stream = this.client!.messages.stream({
-          model: this.model,
-          max_tokens: request.max_tokens ?? this.maxTokens,
-          temperature: request.temperature ?? this.temperature,
-          system: request.system,
-          messages,
-          tools,
-        });
+    // NOTE: onError is intentionally NOT wired to the per-attempt stream "error"
+    // event — a retryable mid-stream error would otherwise notify the consumer
+    // even though the retry goes on to succeed. Report failure once, below,
+    // only after retries are exhausted.
+    let finalMessage;
+    try {
+      finalMessage = await withRetry(
+        async () => {
+          const stream = this.client!.messages.stream({
+            model: this.model,
+            max_tokens: request.max_tokens ?? this.maxTokens,
+            temperature: request.temperature ?? this.temperature,
+            system: request.system,
+            messages,
+            tools,
+          });
 
-        stream.on("text", (textDelta) => {
-          callbacks.onTextDelta?.(textDelta);
-        });
+          stream.on("text", (textDelta) => {
+            callbacks.onTextDelta?.(textDelta);
+          });
 
-        stream.on("contentBlock", (block) => {
-          if (block.type === "tool_use") {
-            callbacks.onToolUseStart?.(block.id, block.name);
-          }
-        });
+          stream.on("contentBlock", (block) => {
+            if (block.type === "tool_use") {
+              callbacks.onToolUseStart?.(block.id, block.name);
+            }
+          });
 
-        stream.on("error", (error) => {
-          callbacks.onError?.(error);
-        });
+          // Swallow the event here so an unhandled "error" doesn't crash the
+          // process; the rejection from finalMessage() drives retry/failure.
+          stream.on("error", () => {});
 
-        return await stream.finalMessage();
-      },
-      (err) => {
-        const pe = toProviderError(err, "anthropic");
-        if (!pe.isRetryable) throw pe;
-        return true;
-      },
-      this.retryConfig,
-      (attempt, delay) => log.warn(`Anthropic API streaming retry ${attempt} in ${delay}ms...`)
-    );
+          return await stream.finalMessage();
+        },
+        (err) => {
+          const pe = toProviderError(err, "anthropic");
+          if (!pe.isRetryable) throw pe;
+          return true;
+        },
+        this.retryConfig,
+        (attempt, delay) => log.warn(`Anthropic API streaming retry ${attempt} in ${delay}ms...`)
+      );
+    } catch (err) {
+      callbacks.onError?.(err instanceof Error ? err : new Error(String(err)));
+      throw err;
+    }
 
     // Map final message content to our ContentBlock type
     const content: ContentBlock[] = [];

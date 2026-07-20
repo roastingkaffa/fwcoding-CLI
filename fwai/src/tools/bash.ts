@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import type { AgenticTool, ToolExecutionContext, ToolExecutionResult } from "./tool-interface.js";
 import { validateBashCommand } from "./bash-validator.js";
+import * as log from "../utils/logger.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes
 const MAX_TIMEOUT_MS = 600_000; // 10 minutes
@@ -45,16 +46,22 @@ export const bashTool: AgenticTool = {
         metadata: { commands_run: [] },
       };
     }
-    if (validation.risk === "moderate" && context.confirm) {
-      const confirmed = await context.confirm(
-        `⚠ ${validation.reason}: ${command}\nProceed? (y/N) `
-      );
-      if (!confirmed) {
-        return {
-          content: `Command cancelled by user: ${validation.reason}`,
-          is_error: true,
-          metadata: { commands_run: [] },
-        };
+    if (validation.risk === "moderate") {
+      if (context.confirm) {
+        const confirmed = await context.confirm(
+          `⚠ ${validation.reason}: ${command}\nProceed? (y/N) `
+        );
+        if (!confirmed) {
+          return {
+            content: `Command cancelled by user: ${validation.reason}`,
+            is_error: true,
+            metadata: { commands_run: [] },
+          };
+        }
+      } else {
+        // No confirmation channel (agentic/CI context): don't silently swallow
+        // the gate — surface that a moderate-risk command ran unconfirmed.
+        log.warn(`Running moderate-risk command without confirmation: ${validation.reason}`);
       }
     }
 
