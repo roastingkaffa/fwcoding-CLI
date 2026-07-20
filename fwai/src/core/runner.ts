@@ -62,15 +62,60 @@ export async function runTool(tool: ToolDef, ctx: RunContext): Promise<RunResult
     let bootStatus: BootStatus | undefined;
     let timedOut = false;
     let killedByPattern = false;
+    let settled = false;
+    let killTimer: NodeJS.Timeout | undefined;
 
     // Determine effective timeout from stop_conditions or tool.timeout_sec
     const effectiveTimeout = getEffectiveTimeout(tool);
+
+    // Send SIGTERM, then escalate to SIGKILL if the process ignores it. Without
+    // escalation a command that traps SIGTERM (serial monitors, openocd, …)
+    // never exits, "close" never fires, and the run hangs forever.
+    const terminate = () => {
+      child.kill("SIGTERM");
+      if (!killTimer) {
+        killTimer = setTimeout(() => {
+          if (!child.killed) child.kill("SIGKILL");
+        }, 5000);
+        killTimer.unref?.();
+      }
+    };
+
+    // Resolve the promise exactly once, even if both "error" and "close" fire.
+    const settleFail = (reason: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      logStream.end();
+      log.error(`${tool.name} failed: ${reason}`);
+      resolve({
+        toolResult: {
+          tool: tool.name,
+          command,
+          exit_code: 1,
+          duration_ms: Date.now() - startTime,
+          log_file: `${tool.name}.log`,
+          status: "fail",
+          pattern_matched: undefined,
+        },
+        bootStatus,
+      });
+    };
+
+    // A write-stream error (e.g. runDir missing/unwritable) would otherwise be
+    // an uncaught exception and leave the promise pending.
+    logStream.on("error", (err) => settleFail(`log write error: ${err.message}`));
+
+    // Spawn failures (bad working_dir → ENOENT, missing sh) emit "error"; "close"
+    // may never fire, so resolve here instead of hanging.
+    child.on("error", (err) => settleFail(`spawn error: ${err.message}`));
 
     // Timeout handling
     const timer = setTimeout(() => {
       timedOut = true;
       log.warn(`${tool.name} timed out after ${effectiveTimeout}s`);
-      child.kill("SIGTERM");
+      terminate();
     }, effectiveTimeout * 1000);
 
     // Real-time line matching (for monitor-type tools)
@@ -83,7 +128,7 @@ export async function runTool(tool: ToolDef, ctx: RunContext): Promise<RunResult
         } else {
           log.error(`Failure pattern matched: ${matched.matched_pattern}`);
         }
-        child.kill("SIGTERM");
+        terminate();
       });
     }
 
@@ -92,7 +137,10 @@ export async function runTool(tool: ToolDef, ctx: RunContext): Promise<RunResult
     child.stderr.pipe(logStream, { end: false });
 
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
 
       const durationMs = Date.now() - startTime;
       const exitCode = code ?? 1;

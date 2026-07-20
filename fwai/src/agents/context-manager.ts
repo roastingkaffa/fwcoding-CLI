@@ -30,6 +30,12 @@ export function estimateTokenCount(messages: ToolMessage[]): number {
   return Math.ceil(chars / 4);
 }
 
+/** True if a message's content array leads with a tool_result block. */
+function startsWithToolResult(msg: ToolMessage): boolean {
+  if (typeof msg.content === "string") return false;
+  return msg.content.length > 0 && msg.content[0].type === "tool_result";
+}
+
 /** Check if conversation should be compressed */
 export function shouldCompress(messages: ToolMessage[], maxTokens: number): boolean {
   const estimated = estimateTokenCount(messages);
@@ -50,8 +56,20 @@ export async function compressConversation(
 
   if (messages.length <= keepRecent) return messages;
 
-  const older = messages.slice(0, messages.length - keepRecent);
-  const recent = messages.slice(messages.length - keepRecent);
+  // Move the split boundary earlier if it would land on a user message that
+  // begins with tool_result blocks — those must stay paired with the assistant
+  // tool_use turn that precedes them, or the next API request 400s with an
+  // orphaned tool_result. Widening `recent` keeps every pair intact.
+  let splitIdx = messages.length - keepRecent;
+  while (splitIdx > 0 && startsWithToolResult(messages[splitIdx])) {
+    splitIdx--;
+  }
+
+  // If everything got pulled into `recent`, there's nothing to summarize.
+  if (splitIdx <= 0) return messages;
+
+  const older = messages.slice(0, splitIdx);
+  const recent = messages.slice(splitIdx);
 
   // Build a text representation of older messages for summarization
   const olderText = older

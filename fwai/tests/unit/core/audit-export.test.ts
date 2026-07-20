@@ -91,7 +91,18 @@ describe("audit-export", () => {
     const csv = exportAsCsv(evidence);
     const lines = csv.trim().split("\n");
     assert.equal(lines[0], "run_id,skill,status,duration_ms,tool_count,files_changed,cost");
-    assert.ok(lines[1].startsWith("run-001"));
+    // Fields are quoted to prevent CSV delimiter/formula injection.
+    assert.ok(lines[1].startsWith('"run-001"'));
+  });
+
+  it("escapes CSV fields to prevent injection and column breakage", () => {
+    const evidence = [makeEvidence("run-001")];
+    evidence[0].skill = "=cmd|'/c calc'!A1,extra";
+    const csv = exportAsCsv(evidence);
+    const dataLine = csv.trim().split("\n")[1];
+    // Leading '=' is neutralized and the embedded comma stays inside one field.
+    assert.ok(dataLine.includes(`"'=cmd|'`) || dataLine.includes(`"'=cmd`));
+    assert.equal(dataLine.split('","').length, 7); // still 7 fields, comma didn't split
   });
 
   it("exports as SARIF (failures only)", () => {

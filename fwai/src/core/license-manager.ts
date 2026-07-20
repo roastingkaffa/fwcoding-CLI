@@ -75,13 +75,20 @@ export function loadCachedLicense(cwd?: string): LicenseStatus | null {
     const cachePath = workspacePath(LICENSE_CACHE_PATH, cwd);
     if (!fs.existsSync(cachePath)) return null;
     const raw = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+    // Honor expiry even offline — otherwise a once-valid cache keeps tier
+    // features unlocked forever after the license lapses.
+    const expired =
+      raw.expiresAt !== undefined &&
+      raw.expiresAt !== null &&
+      !Number.isNaN(Date.parse(raw.expiresAt)) &&
+      Date.parse(raw.expiresAt) < Date.now();
     return {
-      valid: raw.valid,
-      tier: raw.tier ?? "community",
-      features: new Set(raw.features ?? []),
+      valid: expired ? false : raw.valid,
+      tier: expired ? "community" : (raw.tier ?? "community"),
+      features: new Set(expired ? [] : (raw.features ?? [])),
       seatsAvailable: raw.seatsAvailable,
       expiresAt: raw.expiresAt,
-      error: raw.error,
+      error: expired ? "License expired" : raw.error,
     };
   } catch {
     return null;

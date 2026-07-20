@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import type { Config, Policy } from "../schemas/config.schema.js";
 import type { RunSession } from "./evidence.js";
@@ -77,7 +78,9 @@ export function loadOrgPolicy(config: Config, cwd: string): OrgPolicy | null {
 function parseOrgPolicyFile(filePath: string): OrgPolicy | null {
   try {
     const content = fs.readFileSync(filePath, "utf-8");
-    const data = JSON.parse(content);
+    // Parse as YAML — a superset of JSON — so both .yaml and .json org policies
+    // load. JSON.parse would silently reject a YAML file and disable the policy.
+    const data = parseYaml(content);
     return OrgPolicySchema.parse(data);
   } catch (e) {
     log.warn(`Failed to parse org policy: ${e instanceof Error ? e.message : String(e)}`);
@@ -155,13 +158,17 @@ export function validateRunAgainstPolicy(
     }
   }
 
-  // Check signing requirement
+  // Everything gathered so far (blocked/allowed tools, cost budget) is a real,
+  // blocking violation. Compute `blocked` from these BEFORE appending the
+  // advisory signing note — otherwise requiring signing would mask genuine
+  // violations and let the run through.
+  const blocked = violations.length > 0;
+
+  // Signing is advisory: it's applied automatically at evidence write, so it's
+  // surfaced as an informational item, not a blocker.
   if (mergedPolicy.require_signing) {
     violations.push("Signing is required by policy (will be applied at evidence write)");
   }
 
-  return {
-    violations,
-    blocked: mergedPolicy.require_signing ? false : violations.length > 0, // signing is advisory
-  };
+  return { violations, blocked };
 }

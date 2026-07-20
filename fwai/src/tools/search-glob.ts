@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 import type { AgenticTool, ToolExecutionContext, ToolExecutionResult } from "./tool-interface.js";
+import { shellQuote } from "./shell-escape.js";
 
 export const searchGlobTool: AgenticTool = {
   definition: {
@@ -68,11 +69,11 @@ export const searchGlobTool: AgenticTool = {
 };
 
 function buildGlobCommand(pattern: string, searchPath: string): string {
-  const escaped = pattern.replace(/'/g, "'\\''");
+  // Both values are model-supplied — quote for the shell.
   // Use find with pruning of common ignore directories
   return (
-    `find '${searchPath}' ` +
+    `find ${shellQuote(searchPath)} ` +
     `\\( -name '.git' -o -name 'node_modules' -o -name 'build' -o -name '.fwai' \\) -prune -o ` +
-    `-name '${escaped}' -print 2>/dev/null | sort | head -500`
+    `-name ${shellQuote(pattern)} -print 2>/dev/null | sort | head -500`
   );
 }

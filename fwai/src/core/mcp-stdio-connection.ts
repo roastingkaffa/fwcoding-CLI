@@ -48,6 +48,18 @@ export class MCPStdioConnection implements MCPConnection {
       env: { ...process.env, ...env },
     });
 
+    // Spawn failures (e.g. ENOENT when `command` isn't on PATH) surface as an
+    // "error" event. Without a listener Node rethrows it as an uncaught
+    // exception that crashes the whole CLI; instead reject any pending requests
+    // so `connect()` fails cleanly with a descriptive message.
+    this.process.on("error", (err: Error) => {
+      this.connected = false;
+      for (const [, handler] of this.pending) {
+        handler.reject(new Error(`MCP server process error: ${err.message}`));
+      }
+      this.pending.clear();
+    });
+
     this.process.stdout?.on("data", (chunk: Buffer) => {
       this.buffer += chunk.toString();
       this.processBuffer();
@@ -181,7 +193,14 @@ export class MCPStdioConnection implements MCPConnection {
 
   private kill(): void {
     if (this.process) {
-      this.process.kill();
+      const proc = this.process;
+      proc.kill("SIGTERM");
+      // Escalate to SIGKILL if the server ignores SIGTERM and doesn't exit.
+      const killTimer = setTimeout(() => {
+        if (!proc.killed) proc.kill("SIGKILL");
+      }, 2000);
+      killTimer.unref?.();
+      proc.once("exit", () => clearTimeout(killTimer));
       this.process = null;
     }
   }

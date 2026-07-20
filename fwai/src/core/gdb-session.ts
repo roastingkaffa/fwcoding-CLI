@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execSync } from "node:child_process";
+import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 export interface GDBFrame {
   level: number;
@@ -48,14 +49,20 @@ export function runGDBBatch(options: GDBBatchOptions): GDBBatchResult {
   scriptLines.push(...commands);
   scriptLines.push("quit");
 
-  const scriptPath = path.join(os.tmpdir(), `fwai-gdb-${Date.now()}.gdb`);
-  fs.writeFileSync(scriptPath, scriptLines.join("\n") + "\n");
+  // Randomized temp name so a pre-created symlink in a shared /tmp can't be
+  // targeted, and create the file exclusively.
+  const scriptPath = path.join(
+    os.tmpdir(),
+    `fwai-gdb-${Date.now()}-${crypto.randomBytes(6).toString("hex")}.gdb`
+  );
+  fs.writeFileSync(scriptPath, scriptLines.join("\n") + "\n", { flag: "wx", mode: 0o600 });
 
   let output = "";
   let exitCode = 0;
 
   try {
-    output = execSync(`"${gdbBinary}" --batch --nx --command="${scriptPath}" "${elfPath}"`, {
+    // execFileSync (no shell) — gdbBinary/elfPath can't inject via $()/backticks/quotes.
+    output = execFileSync(gdbBinary, ["--batch", "--nx", `--command=${scriptPath}`, elfPath], {
       stdio: ["pipe", "pipe", "pipe"],
       timeout: timeoutSec * 1000,
       cwd,

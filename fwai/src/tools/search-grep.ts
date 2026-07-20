@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 import type { AgenticTool, ToolExecutionContext, ToolExecutionResult } from "./tool-interface.js";
+import { shellQuote } from "./shell-escape.js";
 
 export const searchGrepTool: AgenticTool = {
   definition: {
@@ -78,15 +79,16 @@ export const searchGrepTool: AgenticTool = {
 };
 
 function buildSearchCommand(pattern: string, searchPath: string, glob?: string): string {
-  // Escape pattern for shell
-  const escaped = pattern.replace(/'/g, "'\\''");
+  // All interpolated values are model-supplied — quote every one for the shell.
+  const qPattern = shellQuote(pattern);
+  const qPath = shellQuote(searchPath);
 
   // Try ripgrep first (faster), fall back to grep
-  const rgGlob = glob ? ` --glob '${glob}'` : "";
-  const grepInclude = glob ? ` --include='${glob}'` : "";
+  const rgGlob = glob ? ` --glob ${shellQuote(glob)}` : "";
+  const grepInclude = glob ? ` --include=${shellQuote(glob)}` : "";
 
   return (
-    `rg --no-heading --line-number '${escaped}' '${searchPath}'${rgGlob} 2>/dev/null || ` +
-    `grep -rn '${escaped}' '${searchPath}'${grepInclude} 2>/dev/null`
+    `rg --no-heading --line-number ${qPattern} ${qPath}${rgGlob} 2>/dev/null || ` +
+    `grep -rn ${qPattern} ${qPath}${grepInclude} 2>/dev/null`
   );
 }

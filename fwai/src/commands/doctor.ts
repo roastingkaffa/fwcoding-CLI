@@ -177,6 +177,9 @@ export async function handleDoctor(_args: string, ctx: AppContext): Promise<void
   log.line();
   if (fails > 0) {
     log.error(`NOT READY (${fails} failed, ${warns} warnings)`);
+    // Non-zero exit so `fwai doctor` works as a CI gate. In the REPL this is
+    // harmless — the REPL's close handler force-exits with 0.
+    process.exitCode = 1;
   } else if (warns > 0) {
     log.success(`READY (${warns} warnings)`);
   } else {

@@ -72,11 +72,13 @@ export async function runAgenticLoop(
   let totalToolCalls = 0;
   let finalText = "";
   let continuationCount = 0;
+  let iterationsRun = 0;
 
   // Append user message to conversation
   const messages: ToolMessage[] = [...conversationHistory, { role: "user", content: userMessage }];
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
+    iterationsRun = iteration + 1;
     // Context window management: compress if approaching token limit
     const maxContextTokens = config.maxTokens ?? 4096;
     if (shouldCompress(messages, maxContextTokens * 25)) {
@@ -132,19 +134,24 @@ export async function runAgenticLoop(
     // Append assistant response to conversation
     messages.push({ role: "assistant", content: response.content });
 
-    // If LLM is done (end_turn), exit loop
-    if (response.stop_reason === "end_turn") {
-      break;
-    }
+    const toolUseBlocks = extractToolUseBlocks(response.content);
 
-    // Auto-continue on max_tokens truncation
-    if (response.stop_reason === "max_tokens") {
-      if (continuationCount < maxContinuations) {
+    // If the model requested tools, we MUST answer every tool_use with a
+    // tool_result to keep the conversation protocol valid — do this regardless
+    // of stop_reason (a max_tokens-truncated turn can still carry tool_use).
+    if (toolUseBlocks.length === 0) {
+      // No tools requested — decide whether to finish or continue.
+      if (response.stop_reason === "end_turn") {
+        break;
+      }
+      if (response.stop_reason === "max_tokens" && continuationCount < maxContinuations) {
         continuationCount++;
         messages.push({ role: "user", content: "Please continue." });
         continue;
       }
-      // Exhausted continuations — exit with what we have
+      // refusal / stop_sequence / pause_turn / exhausted continuations:
+      // nothing more to send. Exit with whatever text we have rather than
+      // pushing an empty-content user message (which the API rejects).
       break;
     }
 
@@ -152,7 +159,6 @@ export async function runAgenticLoop(
     continuationCount = 0;
 
     // Process tool_use blocks
-    const toolUseBlocks = extractToolUseBlocks(response.content);
     const toolResults: ToolResultBlock[] = [];
 
     for (const toolUse of toolUseBlocks) {
@@ -192,7 +198,7 @@ export async function runAgenticLoop(
     messages,
     finalText,
     toolCallCount: totalToolCalls,
-    iterations: Math.min(maxIterations, messages.length),
+    iterations: iterationsRun,
     agenticCalls,
     filesRead: Array.from(filesRead),
     filesWritten: Array.from(filesWritten),

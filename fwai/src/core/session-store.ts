@@ -20,7 +20,19 @@ function sessionsDir(cwd?: string): string {
   return path.join(getWorkspaceDir(cwd), "sessions");
 }
 
+/**
+ * Reject any session id that isn't a bare filename token. Ids flow in from raw
+ * CLI arguments, so without this a value like `../../etc/foo` would let
+ * loadSession/appendMessage/deleteSession escape the sessions directory.
+ */
+function assertSafeSessionId(sessionId: string): void {
+  if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId}`);
+  }
+}
+
 function sessionPath(sessionId: string, cwd?: string): string {
+  assertSafeSessionId(sessionId);
   return path.join(sessionsDir(cwd), `${sessionId}.jsonl`);
 }
 
@@ -43,8 +55,6 @@ export function appendMessage(sessionId: string, message: ToolMessage, cwd?: str
   const filePath = sessionPath(sessionId, cwd);
   const line = JSON.stringify({
     ...message,
-    // Stringify content blocks for JSONL compat
-    content: typeof message.content === "string" ? message.content : message.content,
     timestamp: new Date().toISOString(),
   });
   fs.appendFileSync(filePath, line + "\n");
@@ -60,10 +70,18 @@ export function loadSession(sessionId: string, cwd?: string): ToolMessage[] {
     .split("\n")
     .filter((l) => l.trim());
 
-  return lines.map((line) => {
-    const parsed = JSON.parse(line);
-    return { role: parsed.role, content: parsed.content };
-  });
+  // Skip malformed lines instead of throwing — a single corrupt line (e.g. an
+  // interrupted append) would otherwise make the whole session unrecoverable.
+  const messages: ToolMessage[] = [];
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line);
+      messages.push({ role: parsed.role, content: parsed.content });
+    } catch {
+      // Ignore unparseable line and keep loading the rest.
+    }
+  }
+  return messages;
 }
 
 /** List all sessions, most recent first */
@@ -94,10 +112,12 @@ export function listSessions(cwd?: string): SessionInfo[] {
   });
 }
 
-/** Delete a session */
-export function deleteSession(sessionId: string, cwd?: string): void {
+/** Delete a session. Returns true if a session file was actually removed. */
+export function deleteSession(sessionId: string, cwd?: string): boolean {
   const filePath = sessionPath(sessionId, cwd);
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
+    return true;
   }
+  return false;
 }

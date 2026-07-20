@@ -19,6 +19,22 @@ describe("secret-scanner", () => {
     assert.ok(!result.clean.includes("sk-abcdefghijklmnopqrstuvwxyz123456"));
   });
 
+  it("redacts modern sk-proj / sk-svcacct OpenAI keys", () => {
+    const scanner = createScanner();
+    const key = "sk-proj-AbCdEf012345_ghIJKlmno-PQRstuv";
+    const result = scanner.scan(`OPENAI_API_KEY=${key}`);
+    assert.ok(result.redactedCount > 0);
+    assert.ok(!result.clean.includes(key));
+  });
+
+  it("redacts Anthropic sk-ant keys", () => {
+    const scanner = createScanner();
+    const key = "sk-ant-api03-AbCdEf012345_ghIJKlmno-PQRstuv";
+    const result = scanner.scan(`ANTHROPIC_API_KEY=${key}`);
+    assert.ok(result.redactedCount > 0);
+    assert.ok(!result.clean.includes(key));
+  });
+
   it("supports custom patterns", () => {
     const scanner = createScanner(["MY_CUSTOM_\\d+"]);
     const result = scanner.scan("value=MY_CUSTOM_12345");
@@ -28,9 +44,14 @@ describe("secret-scanner", () => {
 
   it("does not false-positive on normal text", () => {
     const scanner = createScanner();
-    const result = scanner.scan("Hello world, this is normal firmware code\nint main() { return 0; }");
+    const result = scanner.scan(
+      "Hello world, this is normal firmware code\nint main() { return 0; }"
+    );
     assert.equal(result.redactedCount, 0);
-    assert.equal(result.clean, "Hello world, this is normal firmware code\nint main() { return 0; }");
+    assert.equal(
+      result.clean,
+      "Hello world, this is normal firmware code\nint main() { return 0; }"
+    );
   });
 
   it("scans evidence and preserves structure", () => {

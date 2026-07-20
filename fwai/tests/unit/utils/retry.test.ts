@@ -1,10 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import {
-  withRetry,
-  computeDelay,
-  DEFAULT_RETRY_CONFIG,
-} from "../../../src/utils/retry.js";
+import { withRetry, computeDelay, DEFAULT_RETRY_CONFIG } from "../../../src/utils/retry.js";
 import type { RetryConfig } from "../../../src/utils/retry.js";
 
 const noDelay: Partial<RetryConfig> = {
@@ -18,7 +14,7 @@ describe("withRetry", () => {
     const result = await withRetry(
       async () => 42,
       () => true,
-      noDelay,
+      noDelay
     );
     assert.equal(result, 42);
   });
@@ -32,10 +28,29 @@ describe("withRetry", () => {
         return "ok";
       },
       () => true,
-      noDelay,
+      noDelay
     );
     assert.equal(result, "ok");
     assert.equal(calls, 2);
+  });
+
+  it("ignores undefined override fields — keeps default maxAttempts", async () => {
+    let calls = 0;
+    await assert.rejects(
+      () =>
+        withRetry(
+          async () => {
+            calls++;
+            throw new Error("transient");
+          },
+          () => true,
+          // A partial config where maxAttempts is undefined must NOT clobber the
+          // default (3) and disable retries entirely.
+          { initialDelayMs: 0, maxDelayMs: 0, jitter: false, maxAttempts: undefined }
+        ),
+      { message: "transient" }
+    );
+    assert.equal(calls, DEFAULT_RETRY_CONFIG.maxAttempts);
   });
 
   it("fails fast on non-retryable error — no retry, rethrows", async () => {
@@ -48,9 +63,9 @@ describe("withRetry", () => {
             throw new Error("permanent");
           },
           () => false,
-          noDelay,
+          noDelay
         ),
-      { message: "permanent" },
+      { message: "permanent" }
     );
     assert.equal(calls, 1);
   });
@@ -65,9 +80,9 @@ describe("withRetry", () => {
             throw new Error(`fail-${calls}`);
           },
           () => true,
-          { ...noDelay, maxAttempts: 3 },
+          { ...noDelay, maxAttempts: 3 }
         ),
-      { message: "fail-3" },
+      { message: "fail-3" }
     );
     assert.equal(calls, 3);
   });
@@ -83,7 +98,7 @@ describe("withRetry", () => {
       },
       () => true,
       { ...noDelay, maxAttempts: 3 },
-      (attempt, delay) => retries.push({ attempt, delay }),
+      (attempt, delay) => retries.push({ attempt, delay })
     );
     assert.equal(retries.length, 2);
     assert.equal(retries[0].attempt, 1);
@@ -100,9 +115,9 @@ describe("withRetry", () => {
           () => {
             throw new Error("shouldRetry threw");
           },
-          noDelay,
+          noDelay
         ),
-      { message: "shouldRetry threw" },
+      { message: "shouldRetry threw" }
     );
   });
 });

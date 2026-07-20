@@ -6,8 +6,16 @@ export async function handleSessions(args: string, _ctx: AppContext): Promise<vo
   const [subcommand, ...rest] = args.trim().split(/\s+/);
 
   if (subcommand === "delete" && rest[0]) {
-    deleteSession(rest[0]);
-    log.success(`Session ${rest[0]} deleted.`);
+    try {
+      const removed = deleteSession(rest[0]);
+      if (removed) {
+        log.success(`Session ${rest[0]} deleted.`);
+      } else {
+        log.warn(`No session found with id: ${rest[0]}`);
+      }
+    } catch (err) {
+      log.error(err instanceof Error ? err.message : String(err));
+    }
     return;
   }
 
