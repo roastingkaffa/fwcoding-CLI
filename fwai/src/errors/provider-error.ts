@@ -7,17 +7,12 @@ export class ProviderError extends Error {
   readonly provider: string;
   readonly isRetryable: boolean;
 
-  constructor(
-    message: string,
-    statusCode: number | undefined,
-    provider: string,
-  ) {
+  constructor(message: string, statusCode: number | undefined, provider: string) {
     super(message);
     this.name = "ProviderError";
     this.statusCode = statusCode;
     this.provider = provider;
     this.isRetryable =
-      statusCode !== undefined &&
-      (statusCode === 429 || (statusCode >= 500 && statusCode < 600));
+      statusCode !== undefined && (statusCode === 429 || (statusCode >= 500 && statusCode < 600));
   }
 }
