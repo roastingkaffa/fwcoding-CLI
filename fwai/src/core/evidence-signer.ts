@@ -58,25 +58,138 @@ export function signEvidence(evidence: Evidence, privateKey: crypto.KeyObject): 
   };
 }
 
-/** Verify evidence signature: reconstruct unsigned payload, verify against embedded signature */
-export function verifyEvidenceSignature(evidence: Evidence): { valid: boolean; error?: string } {
-  if (!evidence.signature) {
-    return { valid: false, error: "No signature field in evidence" };
+/** Short, stable identifier for a public key: SHA-256 over its SPKI DER encoding. */
+export function fingerprintPublicKey(publicKey: crypto.KeyObject): string {
+  const der = publicKey.export({ type: "spki", format: "der" });
+  return crypto.createHash("sha256").update(der).digest("hex").slice(0, 16);
+}
+
+/**
+ * The set of public keys whose signatures we are willing to believe.
+ *
+ * Verification without one of these is integrity-only: it proves the evidence
+ * has not changed since *someone* signed it, not that the signer is anyone we
+ * recognize. An attacker who edits evidence can always re-sign with a key they
+ * generated themselves and embed that key in the file.
+ */
+export interface TrustStore {
+  /** fingerprint → human-readable source (file path) */
+  keys: Map<string, string>;
+}
+
+/** Default directory holding trusted verification keys */
+export const DEFAULT_TRUSTED_KEYS_DIR = ".fwai/keys/trusted";
+
+/** Build a trust store from explicit key files and/or a directory of key files */
+export function loadTrustStore(opts: {
+  keyPaths?: string[];
+  dir?: string;
+  cwd?: string;
+}): TrustStore {
+  const keys = new Map<string, string>();
+  const cwd = opts.cwd ?? process.cwd();
+  const resolve = (p: string) => (path.isAbsolute(p) ? p : path.resolve(cwd, p));
+
+  const candidates: string[] = [...(opts.keyPaths ?? [])];
+
+  if (opts.dir) {
+    const dir = resolve(opts.dir);
+    if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+      for (const entry of fs.readdirSync(dir)) {
+        if (/\.(pub|pem)$/.test(entry)) candidates.push(path.join(dir, entry));
+      }
+    }
   }
 
+  for (const candidate of candidates) {
+    const keyPath = resolve(candidate);
+    try {
+      const publicKey = loadVerifyKey(keyPath);
+      keys.set(fingerprintPublicKey(publicKey), keyPath);
+    } catch {
+      // An unreadable or malformed key file must not take down verification of
+      // the keys that did load — it just isn't trusted.
+    }
+  }
+
+  return { keys };
+}
+
+export interface VerificationResult {
+  /** Signature checks out AND the signing key is trusted. The only "yes". */
+  valid: boolean;
+  /** Signature matches the payload under the key embedded in the evidence. */
+  integrity: boolean;
+  /** The embedded key is present in the supplied trust store. */
+  trusted: boolean;
+  /** Fingerprint of the embedded signing key, when it could be parsed. */
+  keyId?: string;
+  error?: string;
+}
+
+/**
+ * Verify an evidence signature against a trust store.
+ *
+ * Two independent checks: the signature must match the payload (integrity), and
+ * the key that produced it must be one we already trust (authenticity). Both
+ * must hold for `valid`. Callers that pass no trust store get integrity only,
+ * and `valid` stays false — self-attested evidence is not evidence.
+ */
+export function verifyEvidenceSignature(
+  evidence: Evidence,
+  trust?: TrustStore
+): VerificationResult {
+  const fail = (error: string): VerificationResult => ({
+    valid: false,
+    integrity: false,
+    trusted: false,
+    error,
+  });
+
+  if (!evidence.signature) {
+    return fail("No signature field in evidence");
+  }
+
+  let publicKey: crypto.KeyObject;
+  let keyId: string;
+  try {
+    const pubKeyDer = Buffer.from(evidence.signature.public_key, "hex");
+    publicKey = crypto.createPublicKey({ key: pubKeyDer, format: "der", type: "spki" });
+    keyId = fingerprintPublicKey(publicKey);
+  } catch (err) {
+    return fail(
+      `Malformed public key in signature: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  let integrity = false;
   try {
     const { signature: sigField, ...unsigned } = evidence;
     const payload = JSON.stringify(unsigned);
-
-    const pubKeyDer = Buffer.from(sigField.public_key, "hex");
-    const publicKey = crypto.createPublicKey({ key: pubKeyDer, format: "der", type: "spki" });
     const sigBuf = Buffer.from(sigField.signature, "hex");
-
-    const valid = crypto.verify(null, Buffer.from(payload), publicKey, sigBuf);
-    return { valid };
+    integrity = crypto.verify(null, Buffer.from(payload), publicKey, sigBuf);
   } catch (err) {
-    return { valid: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      valid: false,
+      integrity: false,
+      trusted: false,
+      keyId,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
+
+  const trusted = trust?.keys.has(keyId) ?? false;
+
+  let error: string | undefined;
+  if (!integrity) {
+    error = "Signature does not match evidence content";
+  } else if (!trust || trust.keys.size === 0) {
+    error = `No trusted keys configured — content is intact but signer ${keyId} is unverified. Add the signer's public key under ${DEFAULT_TRUSTED_KEYS_DIR}/ or security.signing.trusted_keys.`;
+  } else if (!trusted) {
+    error = `Signing key ${keyId} is not in the trust store`;
+  }
+
+  return { valid: integrity && trusted, integrity, trusted, keyId, error };
 }
 
 /** Sign arbitrary content (e.g., audit exports) */

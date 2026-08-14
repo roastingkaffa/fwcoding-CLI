@@ -79,6 +79,10 @@ export const SecurityConfigSchema = z
         enabled: z.boolean().default(false),
         key_path: z.string().default(".fwai/keys/evidence.key"),
         algorithm: z.literal("ed25519").default("ed25519"),
+        /** Public keys whose signatures we accept. Without these, verification
+         *  can only prove evidence is unmodified, not who signed it. */
+        trusted_keys: z.array(z.string()).default([]),
+        trusted_keys_dir: z.string().default(".fwai/keys/trusted"),
       })
       .optional(),
   })
