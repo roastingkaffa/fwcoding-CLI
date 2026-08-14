@@ -33,7 +33,7 @@ jobs:
         working-directory: fwai
 
       - name: Run tests
-        run: npx tsx --test tests/**/*.test.ts
+        run: npm test
         working-directory: fwai
 
       - name: Build

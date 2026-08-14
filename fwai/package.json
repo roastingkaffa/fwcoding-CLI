@@ -17,8 +17,8 @@
     "start": "node dist/cli.js",
     "lint": "npx tsc --noEmit && eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "test": "npx tsx --test tests/unit/*/*.test.ts",
-    "test:watch": "npx tsx --test --watch tests/unit/*/*.test.ts",
+    "test": "npx tsx --test $(find tests -name '*.test.ts' | sort)",
+    "test:watch": "npx tsx --test --watch $(find tests -name '*.test.ts' | sort)",
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'"
   },
