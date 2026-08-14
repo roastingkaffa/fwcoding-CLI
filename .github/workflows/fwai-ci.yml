@@ -32,7 +32,10 @@ jobs:
           node-version: "20"
       - run: npm ci
         working-directory: fwai
-      - run: npx tsx --test tests/**/*.test.ts
+      # Run via npm so the test glob lives in package.json only. The previous
+      # `tests/**/*.test.ts` was expanded by bash without globstar, so the
+      # literal string reached node and no tests ever ran here.
+      - run: npm test
         working-directory: fwai
 
   audit:
