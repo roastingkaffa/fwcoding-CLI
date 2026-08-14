@@ -3,3 +3,9 @@
 runs/
 logs/
 *.log
+
+# Private signing keys never leave this machine.
+# keys/trusted/ is deliberately NOT ignored — those are public keys, and
+# committing them is how the team agrees on whose evidence to believe.
+keys/*.key
+sessions/

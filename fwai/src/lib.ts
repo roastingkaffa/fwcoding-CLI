@@ -114,7 +114,11 @@ export {
   verifyEvidenceSignature,
   loadSigningKey,
   loadVerifyKey,
+  loadTrustStore,
+  fingerprintPublicKey,
+  DEFAULT_TRUSTED_KEYS_DIR,
 } from "./core/evidence-signer.js";
+export type { TrustStore, VerificationResult } from "./core/evidence-signer.js";
 
 // SBOM
 export {

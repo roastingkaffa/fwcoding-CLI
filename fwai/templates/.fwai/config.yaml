@@ -38,3 +38,19 @@ mode:
 logging:
   level: info
   color: true
+
+# Security
+security:
+  redact_in_evidence: true
+  redact_in_logs: true
+  signing:
+    enabled: false
+    key_path: .fwai/keys/evidence.key
+    algorithm: ed25519
+    # Public keys whose signatures are accepted. A signature verified without
+    # one of these only proves the evidence is unmodified — anyone can re-sign
+    # tampered evidence with a key they generated themselves.
+    # `/security keygen` adds your own key here automatically; commit the
+    # trusted/ directory so the whole team verifies against the same set.
+    trusted_keys_dir: .fwai/keys/trusted
+    trusted_keys: []
