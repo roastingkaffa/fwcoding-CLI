@@ -1,6 +1,6 @@
 # fwai 架構文件 (Architecture Document)
 
-> 版本 0.1.0 | 最後更新：2026-02-28
+> 版本 0.1.0 | 最後更新：2026-08-15 | 對照 commit `8017fb1`
 
 ---
 
@@ -266,6 +266,9 @@ fwai 採用**五層架構**，由上至下依賴：
 | Agentic Loop | `agents/agentic-loop.ts` | LLM ↔ Tool 交互循環 |
 | Tool Registry | `tools/tool-registry.ts` | 工具註冊/範圍限定/執行 |
 | Agent Runtime | `agents/agent-runtime.ts` | Agent 設定建構 |
+| Orchestrator | `agents/orchestrator.ts` | 多 Agent 併發（semaphore，預設 3） |
+| Context Manager | `agents/context-manager.ts` | 上下文估算與壓縮 |
+| Tool Runner | `core/runner.ts` | YAML 韌體工具的程序執行與 pattern 比對 |
 
 ### Layer 4: Provider & 基礎設施層
 
@@ -274,9 +277,12 @@ fwai 採用**五層架構**，由上至下依賴：
 | LLM Providers | `providers/*.ts` | 多 Provider 統一介面 |
 | Evidence | `core/evidence.ts` | 執行紀錄追蹤 |
 | Policy | `core/policy.ts` | 安全策略執行 |
-| MCP Bridge | `core/mcp-bridge.ts` | MCP 協定橋接 |
-| KB/RAG | `core/kb-loader.ts` | 知識庫搜尋 |
-| Board Farm | `core/board-farm.ts` | 硬體 Farm 客戶端 |
+| MCP Bridge | `core/mcp-bridge.ts` | MCP 協定橋接（stdio JSON-RPC） |
+| KB | `core/kb-loader.ts` | 知識庫搜尋（關鍵字比對） |
+| Board Farm | `core/board-farm.ts` | 硬體 Farm 客戶端（目前為 stub） |
+| Hooks | `core/hooks.ts` | pre/post tool-use 攔截 |
+| Session Store | `core/session-store.ts` | REPL 對話持久化（JSONL） |
+| Evidence Signer | `core/evidence-signer.ts` | Ed25519 簽章與信任存放區驗證 |
 
 ### Layer 5: 資料層 (Data)
 
@@ -285,7 +291,9 @@ fwai 採用**五層架構**，由上至下依賴：
 | Config | `.fwai/config.yaml` | 全域設定 |
 | Project | `.fwai/project.yaml` | 專案描述 |
 | YAML 定義 | `.fwai/tools/ skills/ agents/` | 宣告式定義 |
-| Evidence | `.fwai/runs/` | 執行紀錄（JSON + logs） |
+| Evidence | `.fwai/runs/` | 執行紀錄（evidence.json + *.log + diff.patch） |
+| Sessions | `.fwai/sessions/` | REPL 對話（JSONL，id 需符合 `[A-Za-z0-9_-]+`） |
+| Keys | `.fwai/keys/` | `evidence.key`（私鑰，gitignored）+ `trusted/`（公鑰，進版控） |
 | Schemas | `src/schemas/*.ts` | Zod 驗證規則 |
 
 ---
@@ -304,9 +312,18 @@ fwai [command] [options]
   └── (default)      → repl.startRepl()
 ```
 
+**全域旗標**：`--provider`、`--model`、`--max-tokens`、`--temperature`、`--no-streaming`
+（在 `buildAppContext()` 中覆寫 config）。
+
 **關鍵函式**：
-- `buildAppContext()` — 組裝 AppContext（config + project + tools + provider + flags）
+- `buildAppContext()` — 組裝 AppContext（config + project + tools + provider + flags），
+  並在此載入快取授權、合併組織策略
 - CI 模式：設定 watchdog timer，結束時輸出 JSON 摘要
+- 進入點使用 `program.parseAsync().catch()`；若用 `parse()`，非同步 handler 一旦
+  reject 會變成 unhandled rejection（噴原始 stack、離開碼也不對）
+
+**離開碼**：`0` 成功、`1` 未處理錯誤、`2` 工具失敗、`3` flash guard 拒絕、
+`4` 變更預算超標、`5` skill 不存在或 CI 不允許 REPL、`7` CI watchdog 逾時。
 
 ### 4.2 REPL (`repl.ts`)
 
@@ -325,20 +342,19 @@ interface AppContext {
   confirm: (msg) => Promise<boolean>;
   license?: LicenseStatus;
   orgPolicy?: OrgPolicy;
-  mcpManager?: MCPManager;     // Phase 6
-  boardFarmClient?: BoardFarmClient; // Phase 6
 }
 ```
 
 **輸入處理流程**：
 
 ```
-使用者輸入 → queue.push()
+使用者輸入（rl "line" 事件）
   ↓
-drainQueue()
-  ↓
-confirmResolver 等待中? → 餵入確認回應
-  ↓ (否)
+confirmResolver 等待中?
+  ├── 是 → 直接餵給 confirmResolver，不進佇列
+  │        （進佇列會 deadlock：drainQueue 正卡在等待該 handler）
+  └── 否 → queue.push() → drainQueue()
+              ↓
 input.startsWith("/") ?
   ├── 是 → routeCommand(input, ctx)
   └── 否 → handleNaturalLanguage(input, ctx)
@@ -601,8 +617,13 @@ function runAgenticLoop(userMessage, history, config):
   history.push({role: "user", content: userMessage})
   iterations = 0
 
-  while iterations < maxIterations:
+  while iterations < maxIterations:   // 預設 50
     iterations++
+
+    // 每圈開頭檢查上下文用量，超過 80% 就壓縮舊訊息。
+    // 切點會避開 tool_use / tool_result 配對，不讓孤兒 tool_result 留在開頭。
+    if shouldCompress(history, maxContextTokens):
+      history = await compressConversation(history, provider)
 
     // 呼叫 LLM
     if config.streaming && provider.completeWithToolsStreaming:
@@ -613,11 +634,19 @@ function runAgenticLoop(userMessage, history, config):
     // 處理回應
     history.push({role: "assistant", content: response.content})
 
-    if response.stop_reason !== "tool_use":
-      break  // LLM 完成回答
-
-    // 執行工具
     toolUseBlocks = extractToolUseBlocks(response.content)
+
+    // 分岔看的是「有沒有 tool_use」，不是 stop_reason —— 被 max_tokens
+    // 截斷的回合仍可能夾帶 tool_use，漏回 tool_result 會使對話協定失效。
+    if toolUseBlocks.isEmpty():
+      if response.stop_reason == "end_turn": break
+      if response.stop_reason == "max_tokens" && continuations < 2:
+        continuations++
+        history.push({role: "user", content: "Please continue."})
+        continue
+      break   // refusal / stop_sequence / 續寫用盡：不推空訊息（API 會拒絕）
+
+    continuations = 0
     resultBlocks = []
 
     for each toolUse in toolUseBlocks:
@@ -652,13 +681,26 @@ ToolRegistry
 ├── register(tool)         — 註冊工具
 ├── get(name)              — 取得工具
 ├── getDefinitions()       — 取得 LLM 工具定義
+├── getFilteredDefinitions(names) — 只取指定工具的定義
+├── setPreHooks(hooks) / setPostHooks(hooks)
 ├── execute(name, input, ctx)
-│     ├── 查找工具
+│     ├── 查找工具（找不到 → 回傳錯誤字串，不拋例外）
+│     ├── pre-tool-use hook → allow / deny / ask_user
+│     │     ├── deny     → 回傳錯誤字串給模型（不中斷迴圈）
+│     │     └── ask_user → ctx.confirm()，拒絕則取消
 │     ├── 執行 tool.execute(input, ctx)
+│     ├── post-tool-use hook（僅觀察，例外會被吞掉不影響主流程）
 │     └── 回傳 ToolExecutionResult
 ├── createScoped(names)    — 建立範圍限定 Registry（for Agent）
-└── createDefault(fwTools) — 工廠：內建工具 + firmware 工具
+└── createDefault(fwTools, opts) — 工廠：內建工具 + firmware 工具 + gdb
 ```
+
+**內建工具（`BUILTIN_TOOLS`）**：`read_file`、`write_file`、`edit_file`、
+`grep`、`glob`、`bash`、`memory_analysis`；另加 `gdb_debug`
+（`createDefault` 預設註冊，可用 `{ enableGdb: false }` 停用）。
+
+再往上會疊加兩層：`.fwai/tools/*.tool.yaml` 包裝成的韌體工具，
+以及已連線 MCP 伺服器提供的工具。
 
 ### 工具安全性
 
@@ -772,14 +814,16 @@ createAgentLoopConfig(agent, opts):
 
 3. writeEvidence(session, projectCtx, opts)
    → 編譯 Evidence 物件
-   → git diff --numstat → Changes
-   → globalTracer.getCalls() → LLM tracing
-   → signEvidence() (if signing enabled)
-   → generateSBOM() (if sbom enabled)
-   → scanEvidence() (if security enabled)
+   → generateDiff() → diff.patch + Changes；git branch / commit
+   → globalTracer.getCalls() → LLM tracing（token 數與估算成本）
+   → scanEvidence()      ← 秘密遮蔽必須在寫檔前，否則 API key 會永久留在 run 目錄
+   → generateSBOM()      (if policy.require_sbom)
+   → EvidenceSchema.parse()  ← 驗證失敗只警告不阻擋：寧可留下格式稍有出入的
+                                紀錄，也不要因 schema 演進而整份證據消失
    → 寫入 evidence.json
-   → appendToAuditLog() (if audit enabled)
-   → syncRunToCloud() (if cloud enabled)
+   → signEvidence()      (if security.signing.enabled) → 再寫一次含簽章的版本
+   → appendToAuditLog()  (if policy.audit_log.enabled)
+   → syncRunToCloud()    (if cloud.sync_enabled，fire-and-forget)
 ```
 
 ### 稽核鏈 (Audit Chain)
@@ -817,9 +861,10 @@ Layer 3: Flash Guard
   ├── require_confirmation
   └── require_build_success
 
-Layer 4: Evidence 完整性
+Layer 4: Evidence 完整性與來源
   ├── Ed25519 數位簽章
-  └── SHA-256 鏈式雜湊
+  ├── 信任存放區（.fwai/keys/trusted/ 或 security.signing.trusted_keys）
+  └── SHA-256 長度分隔鏈式雜湊
 
 Layer 5: 秘密掃描
   ├── 自訂 regex patterns
@@ -836,6 +881,24 @@ Layer 7: 合規模式
   ├── DO-178C
   └── IEC 62443
 ```
+
+### 簽章驗證：完整性 ≠ 來源
+
+`verifyEvidenceSignature(evidence, trustStore)` 回傳三個獨立判斷：
+
+| 欄位 | 意義 |
+|------|------|
+| `integrity` | 簽章與內容相符（用證據檔內嵌的公鑰驗） |
+| `trusted` | 該公鑰的指紋出現在信任存放區中 |
+| `valid` | **兩者皆成立才為 true** |
+
+只驗 `integrity` 是不夠的：攻擊者可以修改證據後用自己產生的金鑰重簽、
+並把該公鑰一併嵌入檔案，這樣完整性檢查照樣會通過。
+因此**未提供信任存放區時 `valid` 恆為 false**，不會退回舊的自我認證行為。
+
+信任存放區以公鑰 SPKI DER 的 SHA-256 前 16 個 hex 字元為指紋索引。
+`/security keygen` 會把新產生的公鑰放進 `.fwai/keys/trusted/`；
+該目錄應該進版控（公鑰），而 `keys/*.key` 已被 gitignore（私鑰）。
 
 ### 組織策略合併
 
@@ -965,6 +1028,10 @@ Extension Host (Node.js)
 
 **理由**：支援 piped stdin（CI 場景），避免 readline 交互衝突
 
+**注意**：等待確認時，`line` 事件必須把該行**直接**餵給 `confirmResolver`，
+不能推進佇列 —— `drainQueue` 此時正卡在 await 尚未完成的 handler，
+排進佇列的答案永遠不會被取出，形成 deadlock。
+
 ### 7. 無外部向量資料庫
 
 **決策**：KB 嵌入向量存為扁平 JSON (`.fwai/kb/.embeddings.json`)
@@ -1000,9 +1067,14 @@ Extension Host (Node.js)
 | 套件 | 用途 |
 |------|------|
 | `typescript` ^5.7.0 | TypeScript 編譯器 |
-| `jest` ^29.7.0 | 測試框架 |
-| `ts-jest` ^29.2.0 | Jest TypeScript 支援 |
+| `tsx` ^4.19.0 | 直接執行 TS；測試也透過它跑 |
+| `eslint` ^9.0.0 | Lint（搭配 `@typescript-eslint/*` ^8.0.0） |
+| `prettier` ^3.4.0 | 格式化（`eslint-config-prettier` ^10.0.0） |
 | `@types/node` ^22.13.0 | Node.js 型別定義 |
+
+測試框架是 **Node.js 內建的 `node:test`**，透過 `tsx --test` 執行
+（`npm test`）—— 沒有使用 jest。CI 也呼叫同一個 npm script，
+避免 CI 與本機的測試範圍出現落差。
 
 ### 系統依賴（可選）
 
@@ -1024,5 +1096,17 @@ Extension Host (Node.js)
 | Phase 3 | 多 Agent 編排、Skill 系統、Knowledge Base、MCP stub、Board Farm stub | 完成 |
 | Phase 4 | 插件市集、授權管理、OTA 更新、GDB 除錯、稽核匯出 | 完成 |
 | Phase 5 | Ed25519 簽章、SBOM、秘密掃描、供應鏈安全、CI/CD、組織策略 | 完成 |
-| Phase 6 | 真實 MCP 整合、多 Provider 對等、語意 KB/RAG、Board Farm 客戶端 | 進行中 |
-| Phase 7 | Agent 記憶/對話持久化、OpenTelemetry 可觀測性 | 計畫中 |
+| Phase 6 | 真實 MCP 整合（stdio JSON-RPC 已可用）、對話持久化（`session-store`）、pre/post hook、上下文壓縮 | 完成 |
+| Phase 7 | 安全與健壯性加固：shell 跳脫、路徑穿越防護、程序終止升級、簽章信任存放區、CI 修復 | 完成 |
+| Phase 8 | 多 Provider 對等（Gemini / Ollama）、語意 KB/RAG、Board Farm 實作、`/mcp` 與 `/kb` 介面 | 計畫中 |
+| Phase 9 | OpenTelemetry 可觀測性 | 計畫中 |
+
+### 目前規模
+
+| 項目 | 數量 |
+|------|------|
+| `src/` 模組 | 100 |
+| 原始碼行數 | ~11.3k |
+| 測試檔 / 測試數 | 30 / 244 |
+| REPL 指令 | 21 |
+| 內建 agentic 工具 | 8 |
