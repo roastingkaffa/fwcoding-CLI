@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>fwai 架構解剖</title>
+<style>
+  /* ── Tokens: light is the base, both dark states redefine only tokens ── */
+  :root {
+    --ground:   #EDEFEE;
+    --surface:  #FAFBFA;
+    --sunken:   #E3E6E4;
+    --ink:      #171B1D;
+    --ink-soft: #4C5457;
+    --muted:    #6B7477;
+    --line:     #D2D6D4;
+    --line-firm:#B6BCB9;
+
+    /* Oscilloscope channel convention — CH1 amber, CH2 cyan, CH3 magenta */
+    --ch1:      #9C6202;   /* 安全與治理 */
+    --ch2:      #0C666D;   /* AI / agentic */
+    --ch3:      #8E2566;   /* evidence / 稽核 */
+    --ch1-wash: #F3E6CE;
+    --ch2-wash: #DCEDEE;
+    --ch3-wash: #F0DEE9;
+
+    --ok:       #2A6B33;
+    --warn:     #9C6202;
+    --crit:     #A32B22;
+
+    --sans: "Helvetica Neue", "Segoe UI", system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, "Noto Sans Mono CJK TC", monospace;
+
+    --rail: 15rem;
+    --col: 40rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0F1214;
+      --surface:  #161A1C;
+      --sunken:   #1D2225;
+      --ink:      #E4E8E6;
+      --ink-soft: #B3BBB9;
+      --muted:    #838C8F;
+      --line:     #2A3033;
+      --line-firm:#3D4548;
+
+      --ch1:      #E5A63C;
+      --ch2:      #4FC7CE;
+      --ch3:      #E273B2;
+      --ch1-wash: #2C2416;
+      --ch2-wash: #12292B;
+      --ch3-wash: #2B1A25;
+
+      --ok:       #63B36B;
+      --warn:     #E5A63C;
+      --crit:     #E8776B;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:   #0F1214;
+    --surface:  #161A1C;
+    --sunken:   #1D2225;
+    --ink:      #E4E8E6;
+    --ink-soft: #B3BBB9;
+    --muted:    #838C8F;
+    --line:     #2A3033;
+    --line-firm:#3D4548;
+
+    --ch1:      #E5A63C;
+    --ch2:      #4FC7CE;
+    --ch3:      #E273B2;
+    --ch1-wash: #2C2416;
+    --ch2-wash: #12292B;
+    --ch3-wash: #2B1A25;
+
+    --ok:       #63B36B;
+    --warn:     #E5A63C;
+    --crit:     #E8776B;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.72;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Shell ─────────────────────────────────────────────── */
+  .shell {
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: 0;
+    max-width: 76rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .rail { padding: 3.5rem 1.5rem 4rem 0; }
+  .rail-inner { position: sticky; top: 2rem; display: flex; flex-direction: column; gap: 1.4rem; }
+  .rail-mark {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 1rem;
+  }
+  .rail nav { display: flex; flex-direction: column; gap: .1rem; }
+  .rail a {
+    font-family: var(--mono);
+    font-size: .78rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: .3rem 0 .3rem .1rem;
+    border-left: 2px solid transparent;
+    padding-left: .7rem;
+    display: flex;
+    gap: .55rem;
+  }
+  .rail a:hover { color: var(--ch2); border-left-color: var(--ch2); }
+  .rail a:focus-visible { outline: 2px solid var(--ch2); outline-offset: 2px; }
+  .rail a span { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  main { padding: 3.5rem 0 7rem; min-width: 0; }
+  .col { max-width: var(--col); }
+
+  /* ── Type ──────────────────────────────────────────────── */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ch2);
+    margin: 0 0 .9rem;
+  }
+  h1 {
+    font-size: clamp(2.3rem, 5vw, 3.4rem);
+    line-height: 1.06;
+    letter-spacing: -.025em;
+    font-weight: 700;
+    text-wrap: balance;
+    margin: 0 0 1.1rem;
+  }
+  h2 {
+    font-size: 1.55rem;
+    line-height: 1.25;
+    letter-spacing: -.018em;
+    font-weight: 700;
+    text-wrap: balance;
+    margin: 0 0 .35rem;
+  }
+  h3 {
+    font-size: 1.02rem;
+    line-height: 1.4;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    margin: 0 0 .4rem;
+  }
+  p { margin: 0 0 1.05rem; color: var(--ink-soft); }
+  .lede { font-size: 1.14rem; line-height: 1.62; color: var(--ink); }
+  strong { color: var(--ink); font-weight: 650; }
+  a { color: var(--ch2); }
+
+  code, .m {
+    font-family: var(--mono);
+    font-size: .875em;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: .08em .34em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  section { margin-bottom: 4.5rem; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    border-top: 2px solid var(--ink);
+    padding-top: .9rem;
+    margin-bottom: 1.6rem;
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: .78rem;
+    letter-spacing: .1em;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    padding-top: .35rem;
+  }
+  .sec-head p { margin: .3rem 0 0; font-size: .93rem; }
+
+  /* ── Figures ───────────────────────────────────────────── */
+  figure {
+    margin: 2rem 0 2.4rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1.5rem 1.5rem 1.15rem;
+    overflow-x: auto;
+  }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; color: var(--ink); }
+  figcaption {
+    font-family: var(--mono);
+    font-size: .74rem;
+    line-height: 1.65;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    margin-top: 1.15rem;
+    padding-top: .8rem;
+    letter-spacing: .01em;
+    white-space: normal;
+  }
+  figcaption b { color: var(--ink-soft); font-weight: 600; }
+
+  /* SVG text roles */
+  .n-lab { font-family: var(--mono); font-size: 12px; fill: currentColor; }
+  .n-sub { font-family: var(--mono); font-size: 10px; fill: currentColor; opacity: .62; }
+  .n-band{ font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; fill: currentColor; opacity: .72; }
+  .e-lab { font-family: var(--mono); font-size: 10.5px; fill: currentColor; opacity: .82; }
+  .box   { fill: var(--surface); stroke: var(--line-firm); stroke-width: 1.2; }
+  .band  { fill: var(--sunken); stroke: var(--line); stroke-width: 1; }
+  .edge  { stroke: currentColor; stroke-width: 1.3; fill: none; opacity: .75; }
+  .edge-dash { stroke-dasharray: 4 3; }
+  .c1 { color: var(--ch1); }
+  .c2 { color: var(--ch2); }
+  .c3 { color: var(--ch3); }
+  .c1 .box { stroke: var(--ch1); fill: var(--ch1-wash); }
+  .c2 .box { stroke: var(--ch2); fill: var(--ch2-wash); }
+  .c3 .box { stroke: var(--ch3); fill: var(--ch3-wash); }
+
+  /* ── Stat strip ────────────────────────────────────────── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 2.2rem 0 3rem;
+  }
+  .stat { background: var(--surface); padding: 1rem 1.1rem; }
+  .stat b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+  .stat span {
+    display: block;
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: .3rem;
+  }
+
+  /* ── Layer cards ───────────────────────────────────────── */
+  .layers { display: flex; flex-direction: column; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .layer { background: var(--surface); padding: 1.1rem 1.3rem; display: grid; grid-template-columns: 8.5rem minmax(0,1fr); gap: 1.3rem; }
+  .layer-name { font-family: var(--mono); font-size: .78rem; letter-spacing: .06em; line-height: 1.5; padding-top: .18rem; }
+  .layer-name em { display: block; font-style: normal; font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: .2rem; }
+  .layer p { margin: 0; font-size: .93rem; line-height: 1.65; }
+  .layer p + p { margin-top: .5rem; }
+  .layer-files { font-family: var(--mono); font-size: .74rem; color: var(--muted); margin-top: .55rem; line-height: 1.7; word-break: break-all; }
+  .lm-1 { color: var(--ch1); } .lm-2 { color: var(--ch2); } .lm-3 { color: var(--ch3); }
+
+  /* ── Table ─────────────────────────────────────────────── */
+  .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; min-width: 40rem; }
+  th, td { text-align: left; vertical-align: top; padding: .8rem 1rem; border-bottom: 1px solid var(--line); }
+  thead th {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--sunken);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td:first-child { font-weight: 600; color: var(--ink); width: 11rem; }
+  td { color: var(--ink-soft); line-height: 1.6; }
+  .tag {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .06em;
+    padding: .12rem .45rem;
+    border-radius: 3px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+  .tag-1 { color: var(--ch1); } .tag-2 { color: var(--ch2); } .tag-3 { color: var(--ch3); }
+
+  /* ── Callout ───────────────────────────────────────────── */
+  .note {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--ch1);
+    background: var(--surface);
+    border-radius: 0 4px 4px 0;
+    padding: 1.1rem 1.3rem;
+    margin: 1.8rem 0;
+  }
+  .note.crit { border-left-color: var(--crit); }
+  .note-t {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .5rem;
+  }
+  .note p { margin: 0; font-size: .93rem; }
+  .note p + p { margin-top: .6rem; }
+
+  ul { padding-left: 1.15rem; margin: 0 0 1.05rem; color: var(--ink-soft); }
+  li { margin-bottom: .45rem; line-height: 1.68; }
+  li::marker { color: var(--muted); }
+
+  pre {
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1rem 1.15rem;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: .8rem;
+    line-height: 1.75;
+    color: var(--ink-soft);
+    margin: 1.4rem 0;
+  }
+  pre b { color: var(--ch2); font-weight: 600; }
+  pre i { color: var(--muted); font-style: normal; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.4rem;
+    font-family: var(--mono);
+    font-size: .74rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 62rem) {
+    .shell { grid-template-columns: 1fr; padding: 0 1.15rem; }
+    .rail { padding: 2.5rem 0 0; }
+    .rail-inner { position: static; }
+    .rail nav { flex-direction: row; flex-wrap: wrap; gap: .35rem .9rem; }
+    .rail a { border-left: none; padding-left: 0; }
+    main { padding-top: 2.5rem; }
+    .layer { grid-template-columns: 1fr; gap: .5rem; }
+    td:first-child { width: auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="rail-inner">
+      <div class="rail-mark">fwai v0.1.0<br />架構解剖</div>
+      <nav>
+        <a href="#s1"><span>01</span>它是什麼</a>
+        <a href="#s2"><span>02</span>分層架構</a>
+        <a href="#s3"><span>03</span>八層職責</a>
+        <a href="#s4"><span>04</span>兩條執行路徑</a>
+        <a href="#s5"><span>05</span>Agentic 狀態機</a>
+        <a href="#s6"><span>06</span>工具程序狀態機</a>
+        <a href="#s7"><span>07</span>Evidence 生命週期</a>
+        <a href="#s8"><span>08</span>好處在哪</a>
+        <a href="#s9"><span>09</span>與 Claude 的差別</a>
+        <a href="#s10"><span>10</span>誠實的限制</a>
+      </nav>
+    </div>
+  </aside>
+
+  <main>
+
+    <!-- ═══════════════ 01 ═══════════════ -->
+    <section id="s1">
+      <div class="col">
+        <p class="eyebrow">Firmware AI CLI · 架構文件</p>
+        <h1>fwai 架構解剖</h1>
+        <p class="lede">
+          fwai 是一支 TypeScript ESM 的 CLI，把「AI agent 迴圈」包進一層韌體工程專用的
+          <strong>護欄與證據殼</strong>裡。它的核心主張不是「讓 AI 會寫韌體」，而是
+          <strong>讓 AI 動硬體這件事變成可稽核、可阻擋、可重播的流程</strong>。
+        </p>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><b>100</b><span>TS 模組</span></div>
+        <div class="stat"><b>11.1k</b><span>原始碼行數</span></div>
+        <div class="stat"><b>29</b><span>測試檔</span></div>
+        <div class="stat"><b>8</b><span>架構分層</span></div>
+        <div class="stat"><b>2</b><span>執行路徑</span></div>
+      </div>
+
+      <div class="col">
+        <p>
+          一般的 AI coding agent 的迴圈是：<em>模型要求呼叫工具 → 執行 → 回傳結果 → 再問模型</em>。
+          fwai 保留了這個迴圈（<span class="m">src/agents/agentic-loop.ts</span>），但在它外面多綁了四樣東西：
+          一組用 YAML 宣告的<strong>韌體工具</strong>（build / flash / monitor）、一個會在燒錄前擋下來的
+          <strong>策略引擎</strong>、一份每次執行都落地的<strong>證據檔</strong>，以及一條給 CI 用的
+          <strong>非互動路徑</strong>與明確的離開碼。
+        </p>
+        <p>
+          下面十節從外往內拆：先看整體分層，再看兩條執行路徑怎麼分岔，接著三張狀態機說明實際的執行語意，
+          最後談這套設計買到了什麼、以及它現在還缺什麼。
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 02 ═══════════════ -->
+    <section id="s2">
+      <div class="sec-head">
+        <div class="sec-num">02</div>
+        <div>
+          <h2>分層架構</h2>
+          <p>八層，由上往下：使用者輸入進來，硬體動作與證據出去。</p>
+        </div>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 860 620" role="img" aria-label="fwai 的八層架構堆疊：入口層、路由層、執行層、工具層、Provider 層、治理層、基礎設施層、資料層，並標示 Agentic Loop 與策略引擎、Evidence 的關係">
+          <defs>
+            <marker id="a-d" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <!-- Band 1: entry -->
+          <rect class="band" x="8" y="8" width="844" height="66" rx="3" />
+          <text class="n-band" x="22" y="30">01 · ENTRY</text>
+          <rect class="box" x="150" y="20" width="200" height="42" rx="3" />
+          <text class="n-lab" x="250" y="39" text-anchor="middle">cli.ts</text>
+          <text class="n-sub" x="250" y="53" text-anchor="middle">commander · fwai run --ci</text>
+          <rect class="box" x="366" y="20" width="200" height="42" rx="3" />
+          <text class="n-lab" x="466" y="39" text-anchor="middle">repl.ts</text>
+          <text class="n-sub" x="466" y="53" text-anchor="middle">readline · 佇列式 confirm</text>
+          <rect class="box" x="582" y="20" width="200" height="42" rx="3" />
+          <text class="n-lab" x="682" y="39" text-anchor="middle">vscode-fwai</text>
+          <text class="n-sub" x="682" y="53" text-anchor="middle">extension → 呼叫 CLI</text>
+
+          <path class="edge" d="M430 74 L430 92" marker-end="url(#a-d)" />
+          <text class="e-lab" x="440" y="88">AppContext</text>
+
+          <!-- Band 2: routing -->
+          <rect class="band" x="8" y="96" width="844" height="66" rx="3" />
+          <text class="n-band" x="22" y="118">02 · ROUTING</text>
+          <rect class="box" x="150" y="108" width="200" height="42" rx="3" />
+          <text class="n-lab" x="250" y="127" text-anchor="middle">commands/index.ts</text>
+          <text class="n-sub" x="250" y="141" text-anchor="middle">/build /flash /security …</text>
+          <g class="c2">
+            <rect class="box" x="366" y="108" width="416" height="42" rx="3" />
+            <text class="n-lab" x="574" y="127" text-anchor="middle">intent-resolver.ts</text>
+            <text class="n-sub" x="574" y="141" text-anchor="middle">三層：exact → keyword → LLM 分類（回傳信心值）</text>
+          </g>
+
+          <path class="edge" d="M280 162 L280 182" marker-end="url(#a-d)" />
+          <path class="edge" d="M600 162 L600 182" marker-end="url(#a-d)" />
+
+          <!-- Band 3: execution -->
+          <rect class="band" x="8" y="186" width="844" height="82" rx="3" />
+          <text class="n-band" x="22" y="208">03 · EXECUTION</text>
+          <rect class="box" x="150" y="198" width="220" height="58" rx="3" />
+          <text class="n-lab" x="260" y="220" text-anchor="middle">skill-runner.ts</text>
+          <text class="n-sub" x="260" y="235" text-anchor="middle">依序跑 steps：tool / evidence</text>
+          <text class="n-sub" x="260" y="248" text-anchor="middle">/ llm_analyze / agentic</text>
+          <g class="c2">
+            <rect class="box" x="386" y="198" width="220" height="58" rx="3" />
+            <text class="n-lab" x="496" y="220" text-anchor="middle">agentic-loop.ts</text>
+            <text class="n-sub" x="496" y="235" text-anchor="middle">tool_use ↔ tool_result</text>
+            <text class="n-sub" x="496" y="248" text-anchor="middle">上限 50 圈 · 自動壓縮上下文</text>
+          </g>
+          <g class="c2">
+            <rect class="box" x="622" y="198" width="160" height="58" rx="3" />
+            <text class="n-lab" x="702" y="223" text-anchor="middle">orchestrator</text>
+            <text class="n-sub" x="702" y="240" text-anchor="middle">semaphore 併發 3</text>
+          </g>
+
+          <path class="edge" d="M260 268 L260 292" marker-end="url(#a-d)" />
+          <text class="e-lab" x="268" y="285">ToolDef</text>
+          <path class="edge" d="M496 268 L496 292" marker-end="url(#a-d)" />
+          <text class="e-lab" x="504" y="285">registry.execute()</text>
+
+          <!-- Band 4: tools -->
+          <rect class="band" x="8" y="296" width="844" height="82" rx="3" />
+          <text class="n-band" x="22" y="318">04 · TOOLS</text>
+          <rect class="box" x="150" y="308" width="220" height="58" rx="3" />
+          <text class="n-lab" x="260" y="330" text-anchor="middle">core/runner.ts</text>
+          <text class="n-sub" x="260" y="345" text-anchor="middle">spawn sh -c · 逐行比對 pattern</text>
+          <text class="n-sub" x="260" y="358" text-anchor="middle">timeout → SIGTERM → SIGKILL</text>
+          <g class="c2">
+            <rect class="box" x="386" y="308" width="396" height="58" rx="3" />
+            <text class="n-lab" x="584" y="328" text-anchor="middle">tool-registry.ts</text>
+            <text class="n-sub" x="584" y="343" text-anchor="middle">read / write / edit / grep / glob / bash / gdb</text>
+            <text class="n-sub" x="584" y="356" text-anchor="middle">+ 韌體工具包裝 + MCP 遠端工具 · pre/post hook 攔截</text>
+          </g>
+
+          <path class="edge" d="M584 378 L584 400" marker-end="url(#a-d)" />
+
+          <!-- Band 5: providers -->
+          <rect class="band" x="8" y="404" width="844" height="60" rx="3" />
+          <text class="n-band" x="22" y="426">05 · PROVIDER</text>
+          <rect class="box" x="150" y="414" width="196" height="40" rx="3" />
+          <text class="n-lab" x="248" y="432" text-anchor="middle">anthropic.ts</text>
+          <text class="n-sub" x="248" y="446" text-anchor="middle">原生 tool_use + streaming</text>
+          <rect class="box" x="362" y="414" width="196" height="40" rx="3" />
+          <text class="n-lab" x="460" y="432" text-anchor="middle">openai.ts</text>
+          <text class="n-sub" x="460" y="446" text-anchor="middle">function call → 轉譯成同一協定</text>
+          <rect class="box" x="574" y="414" width="208" height="40" rx="3" />
+          <text class="n-lab" x="678" y="432" text-anchor="middle">LLMProvider 介面</text>
+          <text class="n-sub" x="678" y="446" text-anchor="middle">complete / completeWithTools</text>
+
+          <!-- Band 6: governance (spans right, wired back up) -->
+          <rect class="band" x="8" y="490" width="844" height="60" rx="3" />
+          <text class="n-band" x="22" y="512">06 · 治理</text>
+          <g class="c1">
+            <rect class="box" x="150" y="500" width="196" height="40" rx="3" />
+            <text class="n-lab" x="248" y="518" text-anchor="middle">policy.ts</text>
+            <text class="n-sub" x="248" y="532" text-anchor="middle">變更預算 · 保護路徑 · flash guard</text>
+          </g>
+          <g class="c1">
+            <rect class="box" x="362" y="500" width="196" height="40" rx="3" />
+            <text class="n-lab" x="460" y="518" text-anchor="middle">org-policy.ts</text>
+            <text class="n-sub" x="460" y="532" text-anchor="middle">組織策略覆寫專案策略</text>
+          </g>
+          <g class="c1">
+            <rect class="box" x="574" y="500" width="208" height="40" rx="3" />
+            <text class="n-lab" x="678" y="518" text-anchor="middle">hooks.ts</text>
+            <text class="n-sub" x="678" y="532" text-anchor="middle">deny / ask_user / allow</text>
+          </g>
+
+          <!-- governance feedback arrows -->
+          <g class="c1">
+            <path class="edge edge-dash" d="M140 520 L60 520 L60 337 L140 337" marker-end="url(#a-d)" />
+            <text class="e-lab" x="66" y="430" transform="rotate(-90 66 430)" text-anchor="middle">在執行前否決</text>
+          </g>
+
+          <!-- Band 7/8 -->
+          <rect class="band" x="8" y="562" width="416" height="50" rx="3" />
+          <text class="n-band" x="22" y="580">07 · 基礎設施</text>
+          <text class="n-sub" x="22" y="600">gdb · openocd · ota · board-farm · mcp · sbom · supply-chain · license</text>
+
+          <g class="c3">
+            <rect class="band" x="436" y="562" width="416" height="50" rx="3" />
+            <text class="n-band" x="450" y="580">08 · 資料</text>
+            <text class="n-sub" x="450" y="600">.fwai/runs/&lt;id&gt;/evidence.json · *.log · diff.patch · audit.jsonl</text>
+          </g>
+
+          <g class="c3">
+            <path class="edge" d="M810 464 L810 556" marker-end="url(#a-d)" />
+            <text class="e-lab" x="818" y="516" transform="rotate(-90 818 516)" text-anchor="middle">token 用量</text>
+          </g>
+        </svg>
+        <figcaption>
+          <b>圖 1 · 分層架構。</b>藍色是 AI 路徑，琥珀色是治理路徑，洋紅色是證據路徑。
+          注意琥珀色那條虛線是<b>往回</b>指的：策略與 hook 不是事後報表，而是在工具真正執行之前就有否決權。
+          洋紅色那條則是單向往下：所有層的動作最後都沉澱成 <code>evidence.json</code>。
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ═══════════════ 03 ═══════════════ -->
+    <section id="s3">
+      <div class="sec-head">
+        <div class="sec-num">03</div>
+        <div>
+          <h2>八層各自負責什麼</h2>
+          <p>每層列出實際檔案，方便對照 <span class="m">fwai/src/</span> 讀原始碼。</p>
+        </div>
+      </div>
+
+      <div class="layers">
+        <div class="layer">
+          <div class="layer-name">01 Entry<em>入口</em></div>
+          <div>
+            <p>三個入口共用同一個 <code>AppContext</code>：載入 config / project / tools、初始化 provider、決定
+              interactive 還是 ci 模式，並注入一支 <code>confirm()</code>。REPL 版的 confirm 用行佇列實作，
+              避免管線輸入時卡死。</p>
+            <div class="layer-files">cli.ts · repl.ts · utils/run-mode.ts · vscode-fwai/</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name lm-2">02 Routing<em>路由</em></div>
+          <div>
+            <p>斜線指令直接查表；自然語言走三層意圖解析：完全比對 → skill 的 <code>triggers</code> 關鍵字 →
+              交給 LLM 分類並回傳 0–1 的信心值。信心 ≥ 0.8 直接執行，≥ 0.6 先問一句，再低就退回自由對話。</p>
+            <div class="layer-files">commands/index.ts（22 支指令）· skills/intent-resolver.ts</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name lm-2">03 Execution<em>執行</em></div>
+          <div>
+            <p><strong>Skill runner</strong> 跑宣告式流程，步驟只有四種型別：<code>tool</code>、<code>evidence</code>、
+              <code>llm_analyze</code>、<code>agentic</code>。<strong>Agentic loop</strong> 跑模型自主迴圈。
+              <strong>Orchestrator</strong> 用 semaphore 把多個 agent 併發起來，預設 3 條。</p>
+            <div class="layer-files">skills/skill-runner.ts · agents/agentic-loop.ts · agents/orchestrator.ts · agents/context-manager.ts</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name">04 Tools<em>工具</em></div>
+          <div>
+            <p>兩套工具在這裡合流。<code>core/runner.ts</code> 執行 YAML 宣告的韌體工具（會逐行比對開機
+              pattern、命中就提早收工）；<code>ToolRegistry</code> 管理 LLM 可直接呼叫的工具，並支援 scope 收窄、
+              MCP 遠端工具註冊、以及 pre/post hook。</p>
+            <div class="layer-files">core/runner.ts · tools/tool-registry.ts · tools/bash.ts · tools/shell-escape.ts · core/mcp-manager.ts</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name">05 Provider<em>模型</em></div>
+          <div>
+            <p>統一介面把 Anthropic 的 <code>tool_use</code> 協定當成內部標準格式，OpenAI 的 function calling
+              在 provider 內轉譯過來。實際實作只有這兩家（config schema 雖然列了 gemini / local，
+              factory 會 fallback 回 anthropic）。</p>
+            <div class="layer-files">providers/provider.ts · anthropic.ts · openai.ts · provider-factory.ts · utils/retry.ts</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name lm-1">06 治理<em>Governance</em></div>
+          <div>
+            <p>三個獨立的閘門：<strong>變更預算</strong>（超過檔數/行數就擋，CI 模式離開碼 4，並用 LLM 建議怎麼拆
+              patch）、<strong>保護路徑</strong>（minimatch 比對）、<strong>flash guard</strong>（燒錄要人點頭，
+              CI 要 <code>--yes</code>，離開碼 3）。組織策略可以由上而下覆寫專案策略。</p>
+            <div class="layer-files">core/policy.ts · core/org-policy.ts · core/hooks.ts · schemas/config.schema.ts</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name">07 基礎設施<em>Infra</em></div>
+          <div>
+            <p>與真實硬體和外部世界打交道的部分：GDB 批次執行與 backtrace 解析、OpenOCD、OTA 打包/部署/回滾、
+              board farm、MCP over stdio、SBOM（CycloneDX）、npm 供應鏈稽核、插件安裝。</p>
+            <div class="layer-files">core/gdb-session.ts · openocd-session.ts · ota-manager.ts · board-farm.ts · sbom-generator.ts · supply-chain.ts · plugin-loader.ts</div>
+          </div>
+        </div>
+
+        <div class="layer">
+          <div class="layer-name lm-3">08 資料<em>Data</em></div>
+          <div>
+            <p>每次執行開一個 <code>.fwai/runs/&lt;run-id&gt;/</code>，裡面有 evidence.json、每個工具的 log、
+              diff.patch，選配 SBOM 與 Ed25519 簽章。寫入前會先跑一次秘密掃描把 API key 遮蔽掉。</p>
+            <div class="layer-files">core/evidence.ts · evidence-signer.ts · secret-scanner.ts · audit-export.ts · session-store.ts</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 04 ═══════════════ -->
+    <section id="s4">
+      <div class="sec-head">
+        <div class="sec-num">04</div>
+        <div>
+          <h2>兩條執行路徑</h2>
+          <p>這是整個架構最關鍵的一刀：同一個輸入，可能走宣告式流程，也可能走自主迴圈。</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <p>
+          多數 AI coding 工具只有一條路：什麼都丟給模型自己想。fwai 刻意保留了第二條——
+          <strong>宣告式 skill</strong>。「build → flash → monitor → 寫證據」這種每天跑二十次、
+          步驟固定、失敗要有明確離開碼的工作，不需要模型每次重新推理一遍；它應該是一個 YAML 檔，
+          在 CI 裡零 token 成本地跑完。模型只在真的需要判斷時才被叫進來。
+        </p>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 840 400" role="img" aria-label="使用者輸入經過意圖解析後分岔成兩條路徑：宣告式 skill pipeline 與 agentic loop，兩者最終都匯流到證據寫入">
+          <defs>
+            <marker id="a-f" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <rect class="box" x="14" y="168" width="130" height="46" rx="3" />
+          <text class="n-lab" x="79" y="188" text-anchor="middle">使用者輸入</text>
+          <text class="n-sub" x="79" y="203" text-anchor="middle">CLI / REPL / VS Code</text>
+
+          <path class="edge" d="M144 191 L196 191" marker-end="url(#a-f)" />
+
+          <g class="c2">
+            <rect class="box" x="196" y="163" width="148" height="56" rx="3" />
+            <text class="n-lab" x="270" y="184" text-anchor="middle">intent-resolver</text>
+            <text class="n-sub" x="270" y="199" text-anchor="middle">exact→keyword→LLM</text>
+            <text class="n-sub" x="270" y="212" text-anchor="middle">回傳 confidence</text>
+          </g>
+
+          <!-- top branch: skill -->
+          <path class="edge" d="M344 178 L400 178 L400 84 L440 84" marker-end="url(#a-f)" />
+          <text class="e-lab" x="352" y="120">≥ 0.8 命中 skill</text>
+
+          <rect class="box" x="440" y="46" width="200" height="76" rx="3" />
+          <text class="n-lab" x="540" y="68" text-anchor="middle">skill-runner</text>
+          <text class="n-sub" x="540" y="84" text-anchor="middle">YAML 宣告的固定步驟</text>
+          <text class="n-sub" x="540" y="97" text-anchor="middle">on_fail: abort | continue</text>
+          <text class="n-sub" x="540" y="110" text-anchor="middle">可 0 次呼叫 LLM</text>
+
+          <!-- bottom branch: agentic -->
+          <path class="edge" d="M344 204 L400 204 L400 298 L440 298" marker-end="url(#a-f)" />
+          <text class="e-lab" x="352" y="264">&lt; 0.6 或自由提問</text>
+
+          <g class="c2">
+            <rect class="box" x="440" y="260" width="200" height="76" rx="3" />
+            <text class="n-lab" x="540" y="282" text-anchor="middle">agentic-loop</text>
+            <text class="n-sub" x="540" y="298" text-anchor="middle">模型自己決定叫哪些工具</text>
+            <text class="n-sub" x="540" y="311" text-anchor="middle">最多 50 圈</text>
+            <text class="n-sub" x="540" y="324" text-anchor="middle">每圈都可能燒 token</text>
+          </g>
+
+          <!-- skill can call agentic -->
+          <g class="c2">
+            <path class="edge edge-dash" d="M540 122 L540 254" marker-end="url(#a-f)" />
+            <text class="e-lab" x="548" y="192">step: agentic 時內嵌呼叫</text>
+          </g>
+
+          <!-- governance gate on both -->
+          <g class="c1">
+            <rect class="box" x="672" y="152" width="146" height="76" rx="3" />
+            <text class="n-lab" x="745" y="176" text-anchor="middle">policy + hooks</text>
+            <text class="n-sub" x="745" y="192" text-anchor="middle">變更預算 / 保護路徑</text>
+            <text class="n-sub" x="745" y="205" text-anchor="middle">flash 需確認</text>
+            <text class="n-sub" x="745" y="218" text-anchor="middle">deny · ask_user · allow</text>
+            <path class="edge" d="M640 84 L745 84 L745 146" marker-end="url(#a-f)" />
+            <path class="edge" d="M640 298 L745 298 L745 234" marker-end="url(#a-f)" />
+          </g>
+
+          <g class="c3">
+            <path class="edge" d="M745 228 L745 368 L560 368" marker-end="url(#a-f)" />
+            <rect class="box" x="360" y="346" width="200" height="44" rx="3" />
+            <text class="n-lab" x="460" y="366" text-anchor="middle">evidence.json</text>
+            <text class="n-sub" x="460" y="380" text-anchor="middle">兩條路徑共用同一份紀錄格式</text>
+          </g>
+        </svg>
+        <figcaption>
+          <b>圖 2 · 分岔與匯流。</b>兩條路徑的差別在「誰決定下一步」——skill 由 YAML 決定，agentic 由模型決定；
+          相同的是<b>兩條都必須穿過同一道治理閘門，也都寫同一份證據</b>。虛線表示 skill 可以把某一步驟外包給
+          agentic loop（<code>action: agentic</code>），這是刻意留的逃生口：流程固定的部分寫死，需要判斷的那一步才交給模型。
+        </figcaption>
+      </figure>
+
+      <pre><i># .fwai/skills/bringup.skill.yaml — 一條 skill 就是一份可版控的流程</i>
+name: bringup
+triggers: [<b>"bring up"</b>, <b>"燒錄"</b>]
+steps:
+  - tool: build      on_fail: abort
+  - tool: flash      on_fail: abort   <i># guard.require_confirmation → CI 需 --yes</i>
+  - tool: monitor                     <i># 逐行比對 boot pattern，命中就結束</i>
+  - action: evidence
+    summary: true</pre>
+    </section>
+
+    <!-- ═══════════════ 05 ═══════════════ -->
+    <section id="s5">
+      <div class="sec-head">
+        <div class="sec-num">05</div>
+        <div>
+          <h2>狀態機一：Agentic Loop</h2>
+          <p>模型迴圈實際的狀態轉移，包含三個容易被忽略的邊界情況。</p>
+        </div>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 840 470" role="img" aria-label="Agentic loop 狀態機：從呼叫模型開始，依 stop_reason 與是否有 tool_use 分岔，包含上下文壓縮、續寫、hook 否決與迭代上限等狀態">
+          <defs>
+            <marker id="a-s" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <!-- start -->
+          <circle cx="60" cy="60" r="9" fill="currentColor" />
+          <text class="n-sub" x="60" y="88" text-anchor="middle">start</text>
+          <path class="edge" d="M69 60 L128 60" marker-end="url(#a-s)" />
+
+          <!-- check compress -->
+          <rect class="box" x="128" y="34" width="152" height="52" rx="3" />
+          <text class="n-lab" x="204" y="55" text-anchor="middle">估算 token</text>
+          <text class="n-sub" x="204" y="70" text-anchor="middle">chars / 4</text>
+          <text class="n-sub" x="204" y="82" text-anchor="middle">&gt; 80% 上限？</text>
+
+          <path class="edge" d="M204 86 L204 122" marker-end="url(#a-s)" />
+          <text class="e-lab" x="212" y="108">是</text>
+          <rect class="box" x="128" y="122" width="152" height="46" rx="3" />
+          <text class="n-lab" x="204" y="142" text-anchor="middle">壓縮對話</text>
+          <text class="n-sub" x="204" y="157" text-anchor="middle">摘要舊訊息 · 保留配對</text>
+          <path class="edge" d="M128 145 L104 145 L104 60 L124 60" marker-end="url(#a-s)" />
+
+          <path class="edge" d="M280 60 L336 60" marker-end="url(#a-s)" />
+          <text class="e-lab" x="288" y="52">否</text>
+
+          <!-- call model -->
+          <g class="c2">
+            <rect class="box" x="336" y="30" width="168" height="60" rx="3" />
+            <text class="n-lab" x="420" y="54" text-anchor="middle">呼叫模型</text>
+            <text class="n-sub" x="420" y="70" text-anchor="middle">completeWithTools</text>
+            <text class="n-sub" x="420" y="83" text-anchor="middle">（可 streaming）</text>
+          </g>
+
+          <path class="edge" d="M420 90 L420 128" marker-end="url(#a-s)" />
+
+          <!-- decision -->
+          <rect class="box" x="330" y="128" width="180" height="50" rx="3" />
+          <text class="n-lab" x="420" y="149" text-anchor="middle">有 tool_use 區塊？</text>
+          <text class="n-sub" x="420" y="165" text-anchor="middle">與 stop_reason 無關</text>
+
+          <!-- yes: execute tools -->
+          <path class="edge" d="M330 153 L232 153 L232 206" marker-end="url(#a-s)" />
+          <text class="e-lab" x="242" y="184">有</text>
+
+          <g class="c1">
+            <rect class="box" x="146" y="206" width="172" height="52" rx="3" />
+            <text class="n-lab" x="232" y="227" text-anchor="middle">pre-tool hook</text>
+            <text class="n-sub" x="232" y="242" text-anchor="middle">allow / ask_user / deny</text>
+          </g>
+
+          <path class="edge" d="M232 258 L232 292" marker-end="url(#a-s)" />
+          <text class="e-lab" x="240" y="278">allow</text>
+
+          <rect class="box" x="146" y="292" width="172" height="52" rx="3" />
+          <text class="n-lab" x="232" y="313" text-anchor="middle">registry.execute</text>
+          <text class="n-sub" x="232" y="328" text-anchor="middle">路徑檢查 · shell 跳脫</text>
+
+          <!-- deny path -->
+          <g class="c1">
+            <path class="edge" d="M146 232 L96 232 L96 318 L142 318" marker-end="url(#a-s)" />
+            <text class="e-lab" x="92" y="278" text-anchor="middle" transform="rotate(-90 92 278)">deny → 回傳錯誤字串</text>
+          </g>
+
+          <path class="edge" d="M318 318 L392 318" marker-end="url(#a-s)" />
+          <rect class="box" x="392" y="292" width="172" height="52" rx="3" />
+          <text class="n-lab" x="478" y="313" text-anchor="middle">送回 tool_result</text>
+          <text class="n-sub" x="478" y="328" text-anchor="middle">每個 tool_use 都要有一則</text>
+
+          <path class="edge" d="M564 318 L604 318 L604 60 L508 60" marker-end="url(#a-s)" />
+          <text class="e-lab" x="612" y="192" transform="rotate(-90 612 192)" text-anchor="middle">下一圈（iteration + 1）</text>
+
+          <!-- no tool_use -->
+          <path class="edge" d="M510 153 L648 153" marker-end="url(#a-s)" />
+          <text class="e-lab" x="556" y="145">沒有</text>
+
+          <rect class="box" x="648" y="120" width="176" height="66" rx="3" />
+          <text class="n-lab" x="736" y="143" text-anchor="middle">看 stop_reason</text>
+          <text class="n-sub" x="736" y="159" text-anchor="middle">end_turn → 結束</text>
+          <text class="n-sub" x="736" y="172" text-anchor="middle">max_tokens → 請它續寫</text>
+
+          <path class="edge" d="M736 186 L736 224 L604 224" marker-end="url(#a-s)" />
+          <text class="e-lab" x="622" y="216">續寫（最多 2 次）</text>
+
+          <g class="c3">
+            <path class="edge" d="M824 153 L836 153" />
+            <path class="edge" d="M736 120 L736 96" marker-end="url(#a-s)" />
+            <rect class="box" x="648" y="44" width="176" height="52" rx="3" />
+            <text class="n-lab" x="736" y="65" text-anchor="middle">結束</text>
+            <text class="n-sub" x="736" y="80" text-anchor="middle">回傳訊息 · 工具呼叫紀錄</text>
+          </g>
+
+          <!-- iteration cap -->
+          <g class="c1">
+            <rect class="box" x="392" y="386" width="300" height="46" rx="3" />
+            <text class="n-lab" x="542" y="406" text-anchor="middle">迭代上限 50 圈</text>
+            <text class="n-sub" x="542" y="421" text-anchor="middle">到頂就跳出迴圈，避免無止境燒 token</text>
+            <path class="edge edge-dash" d="M604 344 L604 380" marker-end="url(#a-s)" />
+          </g>
+        </svg>
+        <figcaption>
+          <b>圖 3 · Agentic loop 狀態機。</b>三個關鍵決策：(1)
+          <b>判斷分岔看的是「有沒有 tool_use」而不是 stop_reason</b>——因為被 <code>max_tokens</code>
+          截斷的回合仍可能夾帶 tool_use，漏回 tool_result 會讓整段對話協定失效；(2)
+          <b>hook 的否決發生在工具執行之前</b>，deny 會變成一則錯誤字串回給模型，而不是丟例外炸掉迴圈；(3)
+          <b>壓縮發生在每圈開頭</b>，且切點會避開 tool_use / tool_result 配對。
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ═══════════════ 06 ═══════════════ -->
+    <section id="s6">
+      <div class="sec-head">
+        <div class="sec-num">06</div>
+        <div>
+          <h2>狀態機二：工具程序生命週期</h2>
+          <p>這是韌體場景真正吃虧的地方——序列埠監看程式不會自己結束。</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <p>
+          一般 agent 的 bash 工具假設「指令會跑完然後回傳」。韌體不是這樣：<code>monitor</code>
+          會一直吐 UART，<code>openocd</code> 會常駐，而你要的其實是「看到 <span class="m">System Ready</span>
+          這行字就算成功、就可以收工了」。<code>core/runner.ts</code> 的狀態機專門處理這件事。
+        </p>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 840 340" role="img" aria-label="工具程序狀態機：spawn 後同時進行逐行 pattern 比對與逾時計時，任一觸發都走 SIGTERM 再升級 SIGKILL，最後只結算一次">
+          <defs>
+            <marker id="a-r" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <circle cx="46" cy="140" r="9" fill="currentColor" />
+          <path class="edge" d="M55 140 L100 140" marker-end="url(#a-r)" />
+
+          <rect class="box" x="100" y="112" width="146" height="56" rx="3" />
+          <text class="n-lab" x="173" y="134" text-anchor="middle">spawn sh -c</text>
+          <text class="n-sub" x="173" y="149" text-anchor="middle">stdout/stderr → log 檔</text>
+          <text class="n-sub" x="173" y="162" text-anchor="middle">interpolate 過的指令</text>
+
+          <!-- three concurrent watchers -->
+          <path class="edge" d="M246 128 L296 128 L296 52" marker-end="url(#a-r)" />
+          <path class="edge" d="M246 140 L320 140" marker-end="url(#a-r)" />
+          <path class="edge" d="M246 152 L296 152 L296 236" marker-end="url(#a-r)" />
+
+          <rect class="box" x="320" y="26" width="180" height="52" rx="3" />
+          <text class="n-lab" x="410" y="47" text-anchor="middle">逐行比對 pattern</text>
+          <text class="n-sub" x="410" y="62" text-anchor="middle">success / failure regex</text>
+
+          <rect class="box" x="320" y="114" width="180" height="52" rx="3" />
+          <text class="n-lab" x="410" y="135" text-anchor="middle">正常結束</text>
+          <text class="n-sub" x="410" y="150" text-anchor="middle">close 事件 · exit code</text>
+
+          <g class="c1">
+            <rect class="box" x="320" y="210" width="180" height="52" rx="3" />
+            <text class="n-lab" x="410" y="231" text-anchor="middle">逾時 / spawn 失敗</text>
+            <text class="n-sub" x="410" y="246" text-anchor="middle">timeout_sec · ENOENT</text>
+          </g>
+
+          <!-- terminate -->
+          <path class="edge" d="M500 52 L556 52 L556 108" marker-end="url(#a-r)" />
+          <text class="e-lab" x="508" y="44">命中 → 提早收工</text>
+          <g class="c1">
+            <path class="edge" d="M500 236 L556 236 L556 174" marker-end="url(#a-r)" />
+          </g>
+
+          <g class="c1">
+            <rect class="box" x="476" y="108" width="160" height="66" rx="3" />
+            <text class="n-lab" x="556" y="130" text-anchor="middle">terminate()</text>
+            <text class="n-sub" x="556" y="146" text-anchor="middle">SIGTERM</text>
+            <text class="n-sub" x="556" y="159" text-anchor="middle">5s 後升級 SIGKILL</text>
+          </g>
+
+          <path class="edge" d="M500 140 L472 140" marker-end="url(#a-r)" />
+
+          <path class="edge" d="M636 140 L686 140" marker-end="url(#a-r)" />
+          <rect class="box" x="686" y="108" width="142" height="66" rx="3" />
+          <text class="n-lab" x="757" y="130" text-anchor="middle">結算一次</text>
+          <text class="n-sub" x="757" y="146" text-anchor="middle">settled 旗標把關</text>
+          <text class="n-sub" x="757" y="159" text-anchor="middle">flush log 後才讀檔</text>
+
+          <g class="c3">
+            <path class="edge" d="M757 174 L757 296 L560 296" marker-end="url(#a-r)" />
+            <rect class="box" x="330" y="272" width="230" height="48" rx="3" />
+            <text class="n-lab" x="445" y="292" text-anchor="middle">ToolResult + BootStatus</text>
+            <text class="n-sub" x="445" y="307" text-anchor="middle">狀態 · 耗時 · 命中的 pattern · log 路徑</text>
+          </g>
+        </svg>
+        <figcaption>
+          <b>圖 4 · 工具程序狀態機。</b>三條路徑會競爭同一個結果，所以有一個 <code>settled</code>
+          旗標保證只結算一次。兩個實務細節：<b>SIGTERM 之後 5 秒升級成 SIGKILL</b>——攔截 SIGTERM 的
+          openocd 或序列埠監看程式會讓執行永遠掛住；以及<b>「pattern 命中」的優先權高於 exit code</b>，
+          因為被我們主動殺掉的程序離開碼一定非零，但那次開機其實是成功的。
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ═══════════════ 07 ═══════════════ -->
+    <section id="s7">
+      <div class="sec-head">
+        <div class="sec-num">07</div>
+        <div>
+          <h2>狀態機三：Evidence 生命週期</h2>
+          <p>一次執行留下什麼、以什麼順序留下。</p>
+        </div>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 840 250" role="img" aria-label="Evidence 生命週期：建立 run 目錄、收集工具結果、產生 diff、秘密遮蔽、schema 驗證、寫檔、簽章、稽核與雲端同步">
+          <defs>
+            <marker id="a-e" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <g class="c3">
+            <rect class="box" x="10" y="60" width="118" height="58" rx="3" />
+            <text class="n-lab" x="69" y="82" text-anchor="middle">建立 run</text>
+            <text class="n-sub" x="69" y="97" text-anchor="middle">.fwai/runs/&lt;id&gt;/</text>
+            <text class="n-sub" x="69" y="110" text-anchor="middle">時間戳 + 標籤</text>
+          </g>
+          <path class="edge" d="M128 89 L156 89" marker-end="url(#a-e)" />
+
+          <rect class="box" x="156" y="60" width="118" height="58" rx="3" />
+          <text class="n-lab" x="215" y="82" text-anchor="middle">累積結果</text>
+          <text class="n-sub" x="215" y="97" text-anchor="middle">每個 tool 一筆</text>
+          <text class="n-sub" x="215" y="110" text-anchor="middle">+ 開機狀態 / 硬體</text>
+          <path class="edge" d="M274 89 L302 89" marker-end="url(#a-e)" />
+
+          <rect class="box" x="302" y="60" width="118" height="58" rx="3" />
+          <text class="n-lab" x="361" y="82" text-anchor="middle">產生 diff</text>
+          <text class="n-sub" x="361" y="97" text-anchor="middle">diff.patch</text>
+          <text class="n-sub" x="361" y="110" text-anchor="middle">git branch / commit</text>
+          <path class="edge" d="M420 89 L448 89" marker-end="url(#a-e)" />
+
+          <g class="c1">
+            <rect class="box" x="448" y="60" width="118" height="58" rx="3" />
+            <text class="n-lab" x="507" y="82" text-anchor="middle">秘密遮蔽</text>
+            <text class="n-sub" x="507" y="97" text-anchor="middle">AWS / sk- / sk-ant-</text>
+            <text class="n-sub" x="507" y="110" text-anchor="middle">寫檔前先掃</text>
+          </g>
+          <path class="edge" d="M566 89 L594 89" marker-end="url(#a-e)" />
+
+          <rect class="box" x="594" y="60" width="118" height="58" rx="3" />
+          <text class="n-lab" x="653" y="82" text-anchor="middle">zod 驗證</text>
+          <text class="n-sub" x="653" y="97" text-anchor="middle">不合格只警告</text>
+          <text class="n-sub" x="653" y="110" text-anchor="middle">不阻擋寫入</text>
+          <path class="edge" d="M712 89 L740 89" marker-end="url(#a-e)" />
+
+          <g class="c3">
+            <rect class="box" x="740" y="60" width="92" height="58" rx="3" />
+            <text class="n-lab" x="786" y="86" text-anchor="middle">寫檔</text>
+            <text class="n-sub" x="786" y="102" text-anchor="middle">evidence.json</text>
+          </g>
+
+          <!-- optional post steps -->
+          <path class="edge edge-dash" d="M786 118 L786 156 L120 156" marker-end="url(#a-e)" />
+          <text class="e-lab" x="440" y="150" text-anchor="middle">以下皆為選配，由 config / policy 開關</text>
+
+          <rect class="box" x="10" y="176" width="150" height="46" rx="3" />
+          <text class="n-lab" x="85" y="196" text-anchor="middle">Ed25519 簽章</text>
+          <text class="n-sub" x="85" y="211" text-anchor="middle">signing.enabled</text>
+
+          <rect class="box" x="176" y="176" width="150" height="46" rx="3" />
+          <text class="n-lab" x="251" y="196" text-anchor="middle">SBOM</text>
+          <text class="n-sub" x="251" y="211" text-anchor="middle">require_sbom</text>
+
+          <rect class="box" x="342" y="176" width="150" height="46" rx="3" />
+          <text class="n-lab" x="417" y="196" text-anchor="middle">稽核日誌</text>
+          <text class="n-sub" x="417" y="211" text-anchor="middle">audit.jsonl 雜湊鏈</text>
+
+          <rect class="box" x="508" y="176" width="150" height="46" rx="3" />
+          <text class="n-lab" x="583" y="196" text-anchor="middle">雲端同步</text>
+          <text class="n-sub" x="583" y="211" text-anchor="middle">fire-and-forget</text>
+
+          <rect class="box" x="674" y="176" width="158" height="46" rx="3" />
+          <text class="n-lab" x="753" y="196" text-anchor="middle">匯出</text>
+          <text class="n-sub" x="753" y="211" text-anchor="middle">json/csv/sarif/html</text>
+        </svg>
+        <figcaption>
+          <b>圖 5 · Evidence 生命週期。</b>順序有意義：<b>秘密遮蔽發生在寫檔之前</b>（否則 API key 會永久留在
+          run 目錄裡），而 <b>zod 驗證失敗只警告不阻擋</b>——寧可留下一份格式稍有出入的紀錄，也不要因為
+          schema 演進而整份證據消失。
+        </figcaption>
+      </figure>
+
+      <div class="col">
+        <pre>.fwai/runs/20260814-2210-bringup/
+├── evidence.json   <i># 工具結果 · 開機狀態 · git 狀態 · token 用量 · 簽章</i>
+├── build.log
+├── flash.log
+├── monitor.log
+└── diff.patch</pre>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 08 ═══════════════ -->
+    <section id="s8">
+      <div class="sec-head">
+        <div class="sec-num">08</div>
+        <div>
+          <h2>這套設計買到了什麼</h2>
+          <p>五個好處，每個都對應到上面某一層具體的機制。</p>
+        </div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>好處</th><th>機制</th><th>沒有它會怎樣</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>不會把板子燒壞 <span class="tag tag-1">治理</span></td>
+              <td>flash 工具帶 <code>guard.require_confirmation</code>；CI 模式必須 <code>--yes</code>，否則離開碼 3。另有 <code>require_build_success</code> 檢查上一次 build 有沒有成功。</td>
+              <td>模型「順手」跑一個燒錄指令，把錯的 image 寫進去，硬體變磚，而且沒人知道是哪一次做的。</td>
+            </tr>
+            <tr>
+              <td>改動有上限 <span class="tag tag-1">治理</span></td>
+              <td>build 前檢查 <code>git diff --numstat</code>，超過檔數/行數上限就擋（CI 離開碼 4），並用 LLM 建議怎麼拆成多個 patch。保護路徑用 minimatch 比對。</td>
+              <td>一次對話下來動了 40 個檔案，review 不動，只能整包退回。</td>
+            </tr>
+            <tr>
+              <td>每次執行都可追溯 <span class="tag tag-3">證據</span></td>
+              <td>evidence.json 記錄工具指令與離開碼、開機是否成功、diff、git commit、操作者、token 用量與估算成本；可簽章，可匯出成 SARIF 進資安流程。</td>
+              <td>「上週那次燒錄到底跑的是哪個 commit？」沒有答案。功能安全稽核（ISO 26262 / DO-178C）過不了。</td>
+            </tr>
+            <tr>
+              <td>固定流程不燒 token <span class="tag tag-2">執行</span></td>
+              <td>Skill 是宣告式 YAML，<code>fwai run bringup --ci --yes</code> 可以完全不呼叫 LLM 就跑完整套 build→flash→monitor。</td>
+              <td>每天跑二十次的例行流程，每次都讓模型重新推理一遍，慢、貴，而且結果不穩定。</td>
+            </tr>
+            <tr>
+              <td>模型懂這塊板子 <span class="tag tag-2">執行</span></td>
+              <td>每次 LLM 呼叫都注入 project context：MCU 型號、架構、flash/RAM 大小、編譯器版本、git 分支。Agent 還能限定可寫路徑與可用工具。</td>
+              <td>模型建議一段吃掉 200 KB RAM 的寫法，而這顆 MCU 只有 128 KB。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 09 ═══════════════ -->
+    <section id="s9">
+      <div class="sec-head">
+        <div class="sec-num">09</div>
+        <div>
+          <h2>跟現在直接用 Claude 有什麼不同</h2>
+          <p>核心迴圈是一樣的。差別全在迴圈外面那一圈。</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <p>
+          先把話說清楚：<strong>fwai 沒有取代 Claude，它就是拿 Claude 當引擎</strong>
+          （<code>providers/anthropic.ts</code> 用的是官方 SDK 與原生 tool_use 協定）。
+          問「差在哪」其實是在問：把通用 agent 換成領域專用 agent，多出來的是什麼。答案是下面這張圖裡的那圈外殼。
+        </p>
+      </div>
+
+      <figure>
+        <svg viewBox="0 0 840 300" role="img" aria-label="左右對照：通用 AI coding agent 的迴圈直接連到工具，fwai 在同一個迴圈與工具之間插入策略閘門、確認機制與證據寫入">
+          <defs>
+            <marker id="a-c" viewBox="0 0 8 8" refX="6.5" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L8 4 L0 8 z" fill="currentColor" />
+            </marker>
+          </defs>
+
+          <text class="n-band" x="24" y="26">通用 AI CODING AGENT</text>
+          <line x1="24" y1="36" x2="368" y2="36" stroke="currentColor" stroke-width="1" opacity=".25" />
+
+          <g class="c2">
+            <rect class="box" x="60" y="64" width="150" height="48" rx="3" />
+            <text class="n-lab" x="135" y="84" text-anchor="middle">模型迴圈</text>
+            <text class="n-sub" x="135" y="99" text-anchor="middle">tool_use ↔ tool_result</text>
+          </g>
+
+          <path class="edge" d="M135 112 L135 168" marker-end="url(#a-c)" />
+          <text class="e-lab" x="143" y="145">直接執行</text>
+
+          <rect class="box" x="60" y="168" width="150" height="48" rx="3" />
+          <text class="n-lab" x="135" y="188" text-anchor="middle">shell / 檔案</text>
+          <text class="n-sub" x="135" y="203" text-anchor="middle">git 是唯一的紀錄</text>
+
+          <path class="edge" d="M210 192 L268 192 L268 88 L214 88" marker-end="url(#a-c)" />
+
+          <text class="e-lab" x="60" y="252">結果留在對話裡；</text>
+          <text class="e-lab" x="60" y="270">關掉視窗就只剩 git log。</text>
+
+          <!-- divider -->
+          <line x1="404" y1="16" x2="404" y2="284" stroke="currentColor" stroke-width="1" opacity=".2" stroke-dasharray="3 4" />
+
+          <text class="n-band" x="440" y="26">fwai</text>
+          <line x1="440" y1="36" x2="820" y2="36" stroke="currentColor" stroke-width="1" opacity=".25" />
+
+          <g class="c2">
+            <rect class="box" x="470" y="64" width="150" height="48" rx="3" />
+            <text class="n-lab" x="545" y="84" text-anchor="middle">同一個模型迴圈</text>
+            <text class="n-sub" x="545" y="99" text-anchor="middle">tool_use ↔ tool_result</text>
+          </g>
+
+          <path class="edge" d="M545 112 L545 134" marker-end="url(#a-c)" />
+
+          <g class="c1">
+            <rect class="box" x="452" y="134" width="186" height="44" rx="3" />
+            <text class="n-lab" x="545" y="153" text-anchor="middle">策略閘門</text>
+            <text class="n-sub" x="545" y="168" text-anchor="middle">預算 · 保護路徑 · flash 確認 · hook</text>
+          </g>
+
+          <path class="edge" d="M545 178 L545 200" marker-end="url(#a-c)" />
+
+          <rect class="box" x="470" y="200" width="150" height="44" rx="3" />
+          <text class="n-lab" x="545" y="219" text-anchor="middle">工具執行</text>
+          <text class="n-sub" x="545" y="234" text-anchor="middle">含真實硬體動作</text>
+
+          <path class="edge" d="M620 222 L676 222 L676 88 L624 88" marker-end="url(#a-c)" />
+
+          <g class="c1">
+            <path class="edge edge-dash" d="M452 156 L420 156 L420 222 L466 222" marker-end="url(#a-c)" />
+            <text class="e-lab" x="414" y="190" transform="rotate(-90 414 190)" text-anchor="middle">擋下 / 要求確認</text>
+          </g>
+
+          <g class="c3">
+            <path class="edge" d="M700 222 L744 222 L744 96" marker-end="url(#a-c)" />
+            <rect class="box" x="700" y="52" width="120" height="44" rx="3" />
+            <text class="n-lab" x="760" y="71" text-anchor="middle">evidence.json</text>
+            <text class="n-sub" x="760" y="86" text-anchor="middle">離線可稽核</text>
+          </g>
+
+          <text class="e-lab" x="440" y="270">多出來的只有兩樣：一道閘門，一份紀錄。</text>
+        </svg>
+        <figcaption>
+          <b>圖 6 · 差在哪。</b>兩邊的模型迴圈是<b>同一個</b>——差別是 fwai 在「模型決定做什麼」和「事情真的發生」
+          之間插進一道可設定的閘門，並在事情發生之後強制留下一份離開對話也還在的紀錄。
+        </figcaption>
+      </figure>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>面向</th><th>直接用 Claude（通用 agent）</th><th>fwai</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>工具集</td>
+              <td>通用：檔案讀寫、搜尋、shell。硬體操作要靠模型自己拼指令。</td>
+              <td>同一批通用工具，<strong>外加 YAML 宣告的韌體工具</strong>（build / flash / monitor），帶逾時、開機 pattern、guard 設定。</td>
+            </tr>
+            <tr>
+              <td>危險操作</td>
+              <td>權限模式統一套用，不分「改一行註解」和「燒錄」。</td>
+              <td><strong>逐工具設定</strong>：flash 一定要人點頭；CI 沒帶 <code>--yes</code> 直接以離開碼 3 收場。</td>
+            </tr>
+            <tr>
+              <td>紀錄</td>
+              <td>對話歷史 + git commit。</td>
+              <td><strong>結構化 evidence.json</strong>：離開碼、開機是否成功、耗時、硬體狀態、token 成本，可簽章、可匯出 SARIF。</td>
+            </tr>
+            <tr>
+              <td>CI</td>
+              <td>需要另外包一層腳本。</td>
+              <td><strong>原生</strong>：<code>fwai run &lt;skill&gt; --ci --yes --json</code>，離開碼 0/2/3/4/5/7 各有定義，還有全域看門狗。</td>
+            </tr>
+            <tr>
+              <td>領域知識</td>
+              <td>靠 CLAUDE.md 之類的說明檔，模型自己記得多少算多少。</td>
+              <td><strong>每次呼叫強制注入</strong> MCU / 架構 / flash / RAM / 編譯器版本，不依賴模型記憶。</td>
+            </tr>
+            <tr>
+              <td>模型綁定</td>
+              <td>綁 Anthropic。</td>
+              <td><code>LLMProvider</code> 介面抽象，Anthropic 與 OpenAI 都能跑，換 provider 不動上層。</td>
+            </tr>
+            <tr>
+              <td>成熟度</td>
+              <td>成熟產品，工具鏈與生態完整。</td>
+              <td><strong>0.1.0，自建專案。</strong>覆蓋面窄，但那一小塊窄的地方（韌體安全與稽核）是通用工具不會做的。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <p class="note-t">一句話總結</p>
+        <p>
+          通用 agent 優化的是<strong>「讓模型能做更多事」</strong>；fwai 優化的是
+          <strong>「讓模型做的每件事都能被擋下、被記錄、被重播」</strong>。
+          在只會弄壞原始碼的場景，前者夠用；在會弄壞一塊 3000 元的板子、或需要通過功能安全稽核的場景，就需要後者。
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════════ 10 ═══════════════ -->
+    <section id="s10">
+      <div class="sec-head">
+        <div class="sec-num">10</div>
+        <div>
+          <h2>誠實的限制</h2>
+          <p>讀架構圖之前該知道的三件事。</p>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="note">
+          <p class="note-t">簽章驗證已改為信任存放區模式（已修）</p>
+          <p>
+            舊版的 <code>verifyEvidenceSignature()</code> 是拿<strong>證據檔裡自帶的那把公鑰</strong>驗自己的簽章，
+            只能證明「檔案沒被改過」，不能證明「是誰簽的」——攻擊者改完內容用自己的金鑰重簽，驗證照樣通過。
+          </p>
+          <p>
+            現在拆成兩個獨立判斷：<code>integrity</code>（簽章與內容相符）與 <code>trusted</code>（簽章金鑰在信任清單裡），
+            <strong>兩者都成立才算 <code>valid</code></strong>。信任清單來自 <span class="m">.fwai/keys/trusted/</span>
+            或 <code>security.signing.trusted_keys</code>；沒有設定清單時只做完整性檢查，且 <code>valid</code> 恆為 false。
+            <span class="m">src/core/evidence-signer.ts</span>
+          </p>
+        </div>
+
+        <div class="note">
+          <p class="note-t">文件與程式碼有落差</p>
+          <p>
+            倉庫裡的 <span class="m">fwai/docs/architecture.md</span> 描述了 Gemini / Ollama provider、
+            KB 語意搜尋、<code>/mcp</code> 與 <code>/kb</code> 指令——這些檔案目前不存在於 <span class="m">src/</span>。
+            本頁的內容一律以實際程式碼為準。
+          </p>
+        </div>
+
+        <div class="note">
+          <p class="note-t">版本狀態</p>
+          <p>
+            0.1.0，100 個模組 / 11.1k 行 / 29 個測試檔 / 238 個測試全過。核心迴圈、skill、evidence、policy 都可用；
+            OTA、board farm、marketplace、cloud sync 的實作程度較淺，偏向骨架。
+          </p>
+        </div>
+      </div>
+
+      <footer>
+        依據 commit <span class="m">8fe3589</span>（分支 fix/security-robustness-hardening）的原始碼撰寫 · 2026-08-14<br />
+        所有敘述可對照 <span class="m">fwai/src/</span> 逐檔查核
+      </footer>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

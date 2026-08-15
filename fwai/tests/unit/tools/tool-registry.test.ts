@@ -89,6 +89,21 @@ describe("ToolRegistry", () => {
     assert.ok(reg.size >= 6);
   });
 
+  it("createDefault registers gdb_debug and memory_analysis", () => {
+    // Both tools existed but no caller ever registered them: gdb_debug sat behind
+    // an `enableGdb` opt-in nobody passed, and memory_analysis was absent from
+    // BUILTIN_TOOLS. The model could not call either one.
+    const names = ToolRegistry.createDefault().getNames();
+    assert.ok(names.includes("gdb_debug"), "gdb_debug must be reachable by default");
+    assert.ok(names.includes("memory_analysis"), "memory_analysis must be reachable by default");
+  });
+
+  it("enableGdb: false still removes the gdb tool", () => {
+    const names = ToolRegistry.createDefault(undefined, { enableGdb: false }).getNames();
+    assert.ok(!names.includes("gdb_debug"));
+    assert.ok(names.includes("read_file"), "opting out of gdb keeps the other built-ins");
+  });
+
   it("createScoped creates a subset registry", () => {
     registry.registerAll([makeMockTool("a"), makeMockTool("b"), makeMockTool("c")]);
     const scoped = registry.createScoped(["a", "c"]);

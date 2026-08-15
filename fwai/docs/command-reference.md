@@ -113,32 +113,42 @@ fwai audit verify
 
 在互動式 REPL 中，所有指令以 `/` 開頭。
 
+以下是 `src/commands/index.ts` 實際註冊的全部指令：
+
 | 指令 | 說明 | 類別 |
 |------|------|------|
 | `/help` | 列出所有可用指令 | 系統 |
 | `/build` | 執行建置工具 | 建置/燒錄 |
 | `/flash` | 燒錄韌體至目標板 | 建置/燒錄 |
 | `/monitor` | 擷取 UART 輸出 | 監控 |
-| `/memory` | 分析韌體記憶體使用量 | 監控 |
 | `/debug` | GDB/OpenOCD 除錯 | 除錯 |
 | `/agent` | 啟動範圍限定 Agent 對話 | AI |
 | `/agents` | 列出已設定的 Agent | AI |
 | `/skills` | 列出可用的 Skill | AI |
-| `/provider` | 顯示/切換 LLM Provider | AI |
 | `/config` | 顯示目前設定 | 設定 |
 | `/doctor` | 環境健康檢查 | 設定 |
 | `/evidence` | 列出/查看執行紀錄 | 稽核 |
 | `/audit` | 稽核匯出/驗證/摘要 | 稽核 |
 | `/security` | 金鑰/簽章/掃描 | 安全 |
 | `/policy` | 組織策略管理 | 安全 |
+| `/sessions` | 列出/刪除已儲存的對話 | 系統 |
+| `/memory` | 分析韌體 flash/RAM 使用量 | 監控 |
+| `/provider` | 顯示/切換 LLM Provider | AI |
+| `/farm` | Board Farm 管理 | 基礎設施 |
 | `/license` | 授權管理 | 商業 |
 | `/marketplace` | 插件市集 | 商業 |
 | `/ota` | OTA 更新管理 | 部署 |
-| `/farm` | Board Farm 管理 | 基礎設施 |
-| `/mcp` | MCP 伺服器管理 | 基礎設施 |
-| `/kb` | Knowledge Base 管理 | 基礎設施 |
 | `/exit` | 退出 REPL | 系統 |
 | `/quit` | 退出 REPL（同 /exit） | 系統 |
+
+### 尚不可用的指令
+
+以下指令在本文件仍保留完整規格說明，但**目前輸入會得到 `Unknown command`**：
+
+| 指令 | 狀態 | 說明 |
+|------|------|------|
+| `/mcp` | 未實作 | 無 `commands/mcp.ts`；`core/mcp-manager.ts` 有底層實作但沒有 REPL 介面 |
+| `/kb` | 未實作 | 無 `commands/kb.ts`；`core/kb-loader.ts` 有底層實作但沒有 REPL 介面 |
 
 ---
 
@@ -406,14 +416,14 @@ Available Skills:
 
 ### `/provider [name] [model]`
 
+> `src/providers/` 只有 `anthropic` 與 `openai` 兩種實作，指定其他名稱會警告後回退到 anthropic。
+
 顯示或切換 LLM Provider。
 
 ```
 /provider                          # 顯示目前狀態
 /provider openai gpt-4o           # 切換到 OpenAI GPT-4o
 /provider anthropic claude-sonnet-4-20250514
-/provider gemini gemini-2.0-flash
-/provider local llama3.2
 ```
 
 **無參數** — 顯示目前 Provider 狀態：
@@ -425,7 +435,7 @@ LLM Provider Status
     Tool-calling: yes
 
 Usage: /provider <name> [model]
-  Names: anthropic, openai, gemini, local
+  Names: anthropic, openai
 ```
 
 **參數：**
@@ -437,12 +447,12 @@ Usage: /provider <name> [model]
 
 **Provider 預設模型：**
 
-| Provider | 預設模型 |
-|----------|----------|
-| `anthropic` | `claude-sonnet-4-20250514` |
-| `openai` | `gpt-4o` |
-| `gemini` | `gemini-pro` |
-| `local` | `local` |
+| Provider | 預設模型 | 狀態 |
+|----------|----------|------|
+| `anthropic` | `claude-sonnet-4-20250514` | 已實作（原生 tool_use + streaming） |
+| `openai` | `gpt-4o` | 已實作（function calling 轉譯） |
+| `gemini` | — | **未實作**，config 可填但會回退到 anthropic |
+| `local` | — | **未實作**，config 可填但會回退到 anthropic |
 
 **即時切換**：不需要重啟 REPL，切換後立即生效。
 
@@ -1021,6 +1031,8 @@ OTA Bundles:
 
 ### `/farm <subcommand>`
 
+> Board Farm 客戶端目前是 stub（`StubBoardFarmClient`）：指令可執行，但會提示尚未設定真實 farm。
+
 Board Farm 管理。
 
 #### `/farm list`
@@ -1064,6 +1076,10 @@ Available Boards:
 ---
 
 ### `/mcp <subcommand>`
+
+> **【未實作】** 沒有 `commands/mcp.ts`，本節純屬規格。
+> 底層 `core/mcp-manager.ts` 與 `core/mcp-stdio-connection.ts` 已實作，
+> MCP 伺服器可透過 `.fwai/config.yaml` 的 `mcp:` 區塊設定，但沒有 REPL 管理介面。
 
 MCP (Model Context Protocol) 伺服器管理。
 
@@ -1139,6 +1155,9 @@ MCP Tools:
 
 ### `/kb <subcommand>`
 
+> **【未實作】** 沒有 `commands/kb.ts`，本節純屬規格。
+> 底層 `core/kb-loader.ts` 已實作，但只做關鍵字比對 — 本節描述的嵌入向量與語意搜尋尚不存在。
+
 Knowledge Base 管理。
 
 #### `/kb status`
@@ -1198,7 +1217,6 @@ KB Search Results:
 |------|------|------|
 | `ANTHROPIC_API_KEY` | Anthropic Claude API 金鑰 | Provider: anthropic |
 | `OPENAI_API_KEY` | OpenAI API 金鑰 | Provider: openai |
-| `GOOGLE_API_KEY` | Google Gemini API 金鑰 | Provider: gemini |
 | `BOARD_FARM_API_KEY` | Board Farm API 金鑰 | Board Farm 客戶端 |
 | `FWAI_LOG_LEVEL` | 日誌層級覆蓋 | 除錯用 |
 
