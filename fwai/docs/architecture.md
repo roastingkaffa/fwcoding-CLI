@@ -961,32 +961,61 @@ Merged Policy = {
 
 ### 通訊架構
 
-```
-VS Code Extension
-  ↓ (child_process.exec)
-fwai CLI (fwai-bridge.ts)
-  ↓
-回傳 JSON/文字
-  ↓
-解析並更新 UI
+擴充功能用**兩套機制**跟 fwai 溝通，依「會不會改變狀態」分流：
 
-特殊情況（WebView 面板）：
-  Chat Panel ←postMessage→ Extension Host ←exec→ fwai CLI
+```
+VS Code Extension Host
+│
+├── 執行類 → lib/cli-runner.ts
+│     spawn(cliPath, args, { NO_COLOR: 1 })
+│     ├── 逐行 stdout/stderr → OutputChannel（可即時顯示）
+│     └── 離開碼 → 判斷成功/失敗
+│     用於：init / build / flash / doctor / run-skill / provider
+│
+└── 讀取類 → lib/fwai-bridge.ts
+      await import("fwai/lib")   ← 動態 import，結果快取
+      用於：fwai-context / chat-panel / memory-panel
 ```
 
-### WebView 面板
+用 `spawn` 而非 `exec`，是為了拿到逐行輸出（建置進度、UART 串流）。
+
+`fwai-bridge` 走**動態 `import()`** 而不是靜態 import，是因為 VS Code 擴充是
+CJS 而 fwai 是 ESM —— 靜態 import 接不起來，動態 import 是跨越這個落差的橋。
+
+分流原則：**會改變狀態的走 CLI**（拿得到離開碼與串流），
+**只是讀取的走 lib**（省下行程啟動成本）。
+
+### WebView
+
+兩種型態不能混談：
 
 ```
 Extension Host (Node.js)
-├── ChatPanel
-│   ├── createWebviewPanel()
-│   ├── postMessage({type: "user-input", text: "..."})
-│   └── onMessage({type: "response", text: "..."})
-├── EvidenceDetail
-│   └── loadEvidence(runId) → 顯示 HTML
-└── MemoryPanel
-    └── analyzeMemory(elfPath) → 顯示圖表
+├── ChatPanelProvider  — WebviewViewProvider（常駐面板區的檢視）
+│   ├── resolveWebviewView(view, ...)
+│   ├── postMessage({type: "user-input", text}) → webview
+│   └── onDidReceiveMessage ← webview
+│         └── 經 fwai-bridge 跑 agentic loop，串流回傳
+│
+├── EvidenceDetail — createWebviewPanel（獨立分頁）
+│   └── loadEvidence(runId) → 產生 HTML
+└── MemoryPanel    — createWebviewPanel（獨立分頁）
+    └── computeMemoryReport(elf) → flash/RAM 長條圖
 ```
+
+### 其他貢獻點
+
+| 項目 | 檔案 | 說明 |
+|------|------|------|
+| 樹狀檢視 | `views/*-tree.ts` | Evidence / Skills / Agents / Tools 四個 |
+| 狀態列 | `statusbar/status-bar.ts` | 專案+MCU、目前模型（未設定顯示 No LLM） |
+| 診斷 | `providers/diagnostics.ts` | 解析 GCC 格式建置錯誤 → 問題面板 |
+| 任務 | `providers/tasks.ts` | 每個 skill 自動成為 type `fwai` 的任務 |
+
+**【未接線】** `package.json` 宣告了 `fwai.pluginsView` 但 `extension.ts`
+沒有為它註冊 provider，該檢視會出現在側邊欄且永遠是空的。
+另有 7 個指令（marketplace / license / audit / ota / debug / security / policy）
+只顯示選單並往 OutputChannel 寫一行，尚未接上 CLI。
 
 ---
 

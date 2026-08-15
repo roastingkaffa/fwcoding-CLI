@@ -807,37 +807,68 @@ MCP 工具會自動註冊到 ToolRegistry，AI 助手可以直接使用。
 
 ## 17. VS Code 擴充功能
 
-### 安裝
+完整說明見 [`vscode-fwai/README.md`](../../vscode-fwai/README.md)，此處為摘要。
 
-在 VS Code 中安裝 `vscode-fwai` 擴充功能。
+### 安裝與啟用
+
+安裝 `vscode-fwai` 擴充功能。它在工作區含有 `.fwai/config.yaml` 時才會啟用
+（`workspaceContains`）—— 沒有這個檔案擴充不會載入，請先跑 `fwai init`。
+需要 VS Code ^1.85.0。
 
 ### 可用命令
 
+命令面板輸入 `FWAI:` 可看到全部 20 個（注意前綴是大寫 `FWAI:`）。
+
 | 命令 | 說明 |
 |------|------|
-| `fwai: Initialize Workspace` | 初始化 .fwai/ |
-| `fwai: Open REPL` | 開啟互動式終端 |
-| `fwai: Build Project` | 執行建置 |
-| `fwai: Flash Device` | 燒錄韌體 |
-| `fwai: Monitor Serial` | 監聽序列埠 |
-| `fwai: Run Skill` | 執行 Skill |
-| `fwai: Agent Chat` | 開啟 Agent 對話 |
-| `fwai: Show Evidence` | 查看執行紀錄 |
-| `fwai: Memory Analysis` | 記憶體分析 |
-| `fwai: Doctor` | 環境健康檢查 |
+| `FWAI: Initialize Workspace` | 初始化 .fwai/ |
+| `FWAI: Open REPL` | 在終端機開啟 fwai |
+| `FWAI: Build` | 執行建置（錯誤會進「問題」面板） |
+| `FWAI: Flash Device` | 燒錄韌體 |
+| `FWAI: Monitor Serial` | 監聽序列埠 |
+| `FWAI: Run Skill` | 執行 Skill |
+| `FWAI: Agent Chat` | 開啟 Agent 對話 |
+| `FWAI: Show Evidence` | 查看執行紀錄 |
+| `FWAI: Analyze Memory` | 記憶體分析 |
+| `FWAI: Doctor` | 環境健康檢查 |
+| `FWAI: Switch LLM Provider` | 切換 provider |
+| `FWAI: Refresh Views` | 重整側邊欄 |
+| `FWAI: Show Config` | 開啟 config.yaml |
+
+**【尚未接線】** 另外 7 個指令 —— `Plugin Marketplace`、`License Status`、
+`Audit Export`、`OTA Deploy`、`Debug (GDB)`、`Security`、`Org Policy` ——
+點得到也會跳出選單，但**選完只會往 OutputChannel 寫一行字，不會實際執行**。
+這些功能在 CLI 端都可用，請暫時改用整合終端機直接跑。
 
 ### 側邊欄面板
 
-- **Agents** — 瀏覽設定的 AI Agent
-- **Skills** — 瀏覽可用的 Skill
-- **Tools** — 瀏覽工具定義
 - **Evidence** — 瀏覽執行紀錄
+- **Skills** — 瀏覽可用的 Skill
+- **Agents** — 瀏覽設定的 AI Agent
+- **Tools** — 瀏覽工具定義
 
-### WebView 面板
+**【未接線】** `package.json` 另外宣告了 **Plugins** 檢視，但沒有註冊 provider，
+它會出現在側邊欄且永遠是空的。
 
-- **Chat Panel** — AI 對話介面
-- **Evidence Detail** — 執行紀錄詳情
-- **Memory Panel** — 記憶體使用量視覺化
+### WebView
+
+- **FWAI Chat** — 面板區的常駐檢視（`WebviewViewProvider`），支援串流
+- **Evidence Detail** — 獨立分頁（`createWebviewPanel`）
+- **Memory Analysis** — 獨立分頁，flash/RAM 長條圖
+
+### 設定
+
+| 設定 | 預設 | 說明 |
+|------|------|------|
+| `fwai.cliPath` | `fwai` | CLI 路徑；未全域安裝時填絕對路徑 |
+| `fwai.autoRefreshEvidence` | `true` | 執行後自動重整 Evidence |
+| `fwai.showStatusBar` | `true` | 顯示狀態列 |
+| `fwai.chat.streamingEnabled` | `true` | 聊天串流輸出 |
+
+### 任務整合
+
+每個 skill 會自動成為 VS Code 任務（type `fwai`），`Terminal → Run Task` 可見。
+手寫於 `.vscode/tasks.json`：`{"type":"fwai","operation":"run","skill":"bringup"}`。
 
 ---
 
