@@ -17,6 +17,9 @@ import { handleDebug } from "./debug.js";
 import { handleSecurity } from "./security.js";
 import { handlePolicy } from "./policy.js";
 import { handleSessions } from "./sessions.js";
+import { handleMemory } from "./memory.js";
+import { handleFarm } from "./farm.js";
+import { handleProvider } from "./provider.js";
 import * as log from "../utils/logger.js";
 
 export interface CommandDef {
@@ -79,6 +82,21 @@ export const commands: CommandDef[] = [
     name: "sessions",
     description: "List or delete saved sessions",
     handler: handleSessions,
+  },
+  {
+    name: "memory",
+    description: "Analyze firmware flash/RAM usage from an ELF",
+    handler: handleMemory,
+  },
+  {
+    name: "provider",
+    description: "Show or hot-switch the LLM provider",
+    handler: handleProvider,
+  },
+  {
+    name: "farm",
+    description: "Board farm: list, allocate, release",
+    handler: handleFarm,
   },
 ];
 

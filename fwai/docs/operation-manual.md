@@ -145,7 +145,7 @@ project:
 
 ```yaml
 provider:
-  name: anthropic          # anthropic | openai | gemini | local
+  name: anthropic          # 已實作：anthropic | openai（gemini / local 尚未實作，會回退到 anthropic）
   model: claude-sonnet-4-20250514
   api_key_env: ANTHROPIC_API_KEY
   max_tokens: 4096
@@ -157,7 +157,6 @@ provider:
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENAI_API_KEY="sk-..."          # 若使用 OpenAI
-export GOOGLE_API_KEY="..."             # 若使用 Gemini
 ```
 
 ### 安全策略設定
@@ -329,15 +328,20 @@ fwai> 幫我分析 src/drivers/uart.c 的初始化流程
 
 ### 內建 AI 工具
 
+`ToolRegistry.createDefault()` 註冊的內建工具（`BUILTIN_TOOLS`）：
+
 | 工具 | 功能 |
 |------|------|
-| `read_file` | 讀取檔案（支援 offset/limit） |
+| `read_file` | 讀取檔案（支援 offset/limit，上限 10 MB） |
 | `write_file` | 寫入/建立檔案（受 protected_paths 約束） |
 | `edit_file` | 精確文字替換（old_text → new_text） |
-| `grep` | 正規表達式搜尋（使用 ripgrep） |
+| `grep` | 正規表達式搜尋（優先用 ripgrep，找不到則回退 grep） |
 | `glob` | 檔案名稱模式搜尋 |
-| `bash` | 執行 Shell 命令（預設 120s 逾時） |
-| `gdb` | GDB 除錯命令 |
+| `bash` | 執行 Shell 命令（預設 120s，上限 600s） |
+| `memory_analysis` | 解析 `arm-none-eabi-size` 輸出，回報 flash/RAM 使用率 |
+| `gdb_debug` | GDB 批次除錯（斷點、暫存器、backtrace）；可用 `createDefault(tools, { enableGdb: false })` 停用 |
+
+除此之外會再註冊 `.fwai/tools/*.tool.yaml` 包裝成的韌體工具，以及已連線 MCP 伺服器提供的工具。
 
 ### Agentic Loop 限制
 
@@ -714,6 +718,11 @@ fwai> UART 收不到資料怎麼辦？
 
 ### KB 設定
 
+> **【未實作】** `ConfigSchema` 目前沒有 `kb` 欄位（實際頂層欄位為
+> `version, provider, policy, intent, mode, logging, marketplace, license, cloud, plugins, security, org_policy, hooks, mcp`）。
+> 把下面這段寫進 `config.yaml` **不會報錯，但會被 zod 靜默丟棄**。
+> `core/kb-loader.ts` 已實作，但只做關鍵字比對 — 沒有嵌入向量或語意搜尋。以下為規格。
+
 ```yaml
 # config.yaml
 kb:
@@ -742,6 +751,8 @@ board_farm:
 ```
 
 ### 操作
+
+> Board Farm 客戶端目前是 stub（`StubBoardFarmClient`）：指令可執行，但會提示尚未設定真實 farm。
 
 ```
 fwai> /farm list
@@ -779,6 +790,9 @@ mcp:
 ```
 
 ### 管理命令
+
+> **【未實作】** 沒有 `commands/mcp.ts`。MCP 伺服器透過 `.fwai/config.yaml` 的 `mcp:` 區塊設定，
+> 底層 `core/mcp-manager.ts` 會連線並自動註冊工具，但沒有 REPL 管理介面。
 
 ```
 fwai> /mcp list           # 列出設定的 MCP 伺服器
@@ -881,7 +895,7 @@ fwai> /build
 **解決**：
 1. 確認 MCP server 命令可執行
 2. 檢查 `timeout_sec` 是否足夠
-3. 使用 `/mcp status` 檢視連線狀態
+3. 檢視啟動時的 MCP 連線警告訊息（`/mcp status` 尚未實作）
 
 ### Provider 切換
 
@@ -889,5 +903,7 @@ fwai> /build
 fwai> /provider openai gpt-4o
   ✓ Switched to openai (gpt-4o)
 ```
+
+也可以在啟動時指定：`fwai --provider openai --model gpt-4o`
 
 即時切換不需要重啟 REPL。

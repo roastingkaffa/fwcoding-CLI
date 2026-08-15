@@ -55,7 +55,6 @@ fwai doctor
 # 擇一（看團隊用哪個 provider）
 export ANTHROPIC_API_KEY="sk-ant-..."    # Anthropic Claude
 export OPENAI_API_KEY="sk-..."           # OpenAI
-export GOOGLE_API_KEY="..."              # Google Gemini
 
 # 建議寫入 ~/.bashrc 或 ~/.zshrc 中
 echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.bashrc

@@ -7,6 +7,7 @@
 | Code | Name | Description | When |
 |------|------|-------------|------|
 | **0** | Success | All tools completed successfully | `fwai run bringup --ci --yes` with all steps passing |
+| **1** | Unhandled error | A command handler threw, or a verification subcommand reported failures | Config parse error, unreachable provider, `/security verify-all` finding invalid or untrusted signatures |
 | **2** | Tool failure | One or more tools returned a non-success status | Build error, flash failure, monitor timeout without boot pattern |
 | **3** | CI guard rejected | A guarded tool (e.g., flash) requires `--yes` in CI mode | `fwai run bringup --ci` without `--yes` when skill includes flash |
 | **4** | Budget exceeded | Git diff exceeds `policy.change_budget` limits | Too many files or lines changed before a build step |

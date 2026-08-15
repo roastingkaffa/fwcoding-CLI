@@ -33,8 +33,13 @@ fwai 是一套 AI 驅動的韌體開發 CLI 工具，結合了：
 - **Agentic AI Loop** — LLM 可自主呼叫工具完成複雜任務
 - **Evidence 追蹤** — 每次操作留下不可篡改的稽核紀錄
 - **安全策略引擎** — 受保護路徑、變更預算、Flash guard
-- **多 Provider 支援** — Anthropic / OpenAI / Gemini / Ollama
+- **多 Provider 支援** — Anthropic / OpenAI（介面已抽象，其他 provider 尚未實作）
 - **插件市集** — 社群貢獻的工具、Skill、Agent
+
+> **本文件的準確度標示**
+> 本專案是規格先行開發，部分章節描述的是 `Firmware-AI-CLI-spec.md` 的目標而非現況。
+> 凡標記 **【未實作】** 的段落表示規格已定義但 `src/` 尚無對應程式碼；
+> 未標記者皆已對照 commit `8e954a8` 的原始碼查核。
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -59,9 +64,9 @@ fwai 是一套 AI 驅動的韌體開發 CLI 工具，結合了：
 │         │                  │                      │           │
 ├─────────┴──────────────────┴──────────────────────┴───────────┤
 │                     Provider 抽象層                            │
-│  ┌───────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│
-│  │ Anthropic │ │ OpenAI   │ │ Gemini   │ │ Ollama (local)   ││
-│  └───────────┘ └──────────┘ └──────────┘ └──────────────────┘│
+│  ┌───────────┐ ┌──────────┐ ┌──────────────────────────────┐│
+│  │ Anthropic │ │ OpenAI   │ │ (其他 provider 尚未實作)      ││
+│  └───────────┘ └──────────┘ └──────────────────────────────┘│
 │                                                               │
 ├───────────────────────────────────────────────────────────────┤
 │                     基礎設施層                                 │
@@ -116,8 +121,6 @@ src/
 │   ├── tool-types.ts         #   ContentBlock / ToolMessage 型別
 │   ├── anthropic.ts          #   Anthropic Claude 實作
 │   ├── openai.ts             #   OpenAI GPT 實作
-│   ├── gemini.ts             #   Google Gemini 實作
-│   ├── ollama.ts             #   Ollama 本地 LLM 實作
 │   └── provider-factory.ts   #   Provider 工廠函式
 │
 ├── tools/                    # Agentic 工具（LLM 可呼叫）
@@ -129,7 +132,10 @@ src/
 │   ├── edit-file.ts          #   精確文字替換
 │   ├── search-grep.ts        #   正規表達式搜尋
 │   ├── search-glob.ts        #   檔案名稱搜尋
-│   ├── gdb.ts                #   GDB 命令
+│   ├── gdb-tool.ts           #   GDB 命令
+│   ├── firmware-tools.ts     #   將 YAML 韌體工具包裝成 agentic tool
+│   ├── bash-validator.ts     #   bash 指令風險分級
+│   ├── shell-escape.ts       #   POSIX shell 引數跳脫
 │   └── memory-analysis.ts    #   記憶體分析輔助
 │
 ├── agents/                   # Agent 系統
@@ -149,10 +155,13 @@ src/
 │   ├── evidence.ts           #   Evidence 建立/儲存/讀取
 │   ├── policy.ts             #   安全策略引擎
 │   ├── runner.ts             #   工具執行引擎（for Skill steps）
-│   ├── kb-loader.ts          #   Knowledge Base 載入/搜尋
-│   ├── kb-embeddings.ts      #   KB 嵌入向量 & 語意搜尋
+│   ├── kb-loader.ts          #   Knowledge Base 載入/搜尋（關鍵字，非語意）
 │   ├── mcp-bridge.ts         #   MCP 協定橋接
 │   ├── mcp-manager.ts        #   MCP 伺服器生命週期管理
+│   ├── mcp-stdio-connection.ts #  MCP stdio JSON-RPC 連線
+│   ├── hooks.ts              #   pre/post tool-use hook
+│   ├── session-store.ts      #   REPL 對話持久化 (JSONL)
+│   ├── diff.ts               #   git diff 產生與解析
 │   ├── board-farm.ts         #   Board Farm 客戶端
 │   ├── license-manager.ts    #   授權驗證/快取
 │   ├── plugin-loader.ts      #   插件載入/安裝/移除
@@ -188,11 +197,10 @@ src/
 │   ├── debug.ts              #   /debug
 │   ├── security.ts           #   /security
 │   ├── policy.ts             #   /policy
+│   ├── sessions.ts           #   /sessions
 │   ├── provider.ts           #   /provider
 │   ├── memory.ts             #   /memory
-│   ├── farm.ts               #   /farm
-│   ├── mcp.ts                #   /mcp
-│   └── kb.ts                 #   /kb
+│   └── farm.ts               #   /farm
 │
 └── utils/                    # 通用輔助工具
     ├── logger.ts             #   多層級日誌 (debug/info/warn/error)
@@ -562,8 +570,9 @@ type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
 |----------|------|----------|-----------|-------------------|
 | Anthropic | `text` block | `tool_use` block | `messages.stream()` | 原生支援 `id` 欄位 |
 | OpenAI | `message.content` | `message.tool_calls[]` | `stream: true` | `tool_calls[].id` → `ToolUseBlock.id` |
-| Gemini | `text` part | `functionCall` part | N/A (MVP) | `functionCall` → `ToolUseBlock` |
-| Ollama | `message.content` | `message.tool_calls[]` | N/A (MVP) | 同 OpenAI 格式 |
+
+Anthropic 的 `tool_use` 協定就是內部標準格式，OpenAI 的 function calling 在 provider 內轉譯過來。
+**【未實作】** Gemini 與 Ollama provider 在規格中定義，但 `src/providers/` 目前只有上述兩家。
 
 ### Provider 工廠
 
@@ -572,9 +581,11 @@ async function createProvider(config: ProviderConfig): Promise<LLMProvider> {
   switch (config.name) {
     case "anthropic": return new AnthropicProvider();
     case "openai":    return new OpenAIProvider();
-    case "gemini":    return new GeminiProvider();
-    case "local":
-    case "ollama":    return new OllamaProvider();
+    default:
+      // config schema 的 enum 仍接受 "gemini" / "local"，但沒有對應實作，
+      // 因此會警告後回退到 anthropic。
+      log.warn(`Unknown provider "${config.name}", falling back to anthropic`);
+      return new AnthropicProvider();
   }
 }
 ```
@@ -960,6 +971,8 @@ Extension Host (Node.js)
 
 **理由**：保持自包含，無需外部服務，適合嵌入式開發環境
 
+**【未實作】** 目前 `core/kb-loader.ts` 只做關鍵字比對，沒有嵌入向量或語意搜尋。
+
 ### 8. MCP 使用 stdio JSON-RPC
 
 **決策**：自行實作輕量 JSON-RPC transport，不依賴 MCP client SDK
@@ -976,7 +989,6 @@ Extension Host (Node.js)
 |------|------|------|
 | `@anthropic-ai/sdk` | ^0.39.0 | Anthropic Claude API |
 | `openai` | ^4.85.0 | OpenAI GPT API |
-| `@google/generative-ai` | ^0.21.0 | Google Gemini API |
 | `commander` | ^13.1.0 | CLI 框架 |
 | `zod` | ^3.24.0 | Schema 驗證 |
 | `yaml` | ^2.7.0 | YAML 解析 |

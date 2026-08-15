@@ -72,7 +72,9 @@ function showProviderStatus(ctx: AppContext): void {
 
   console.log("");
   log.info("Usage: /provider <name> [model]");
-  log.info("  Names: anthropic, openai, gemini, local");
+  // Only these two have an implementation in src/providers/; anything else
+  // warns and falls back to anthropic, so don't advertise it as a choice.
+  log.info("  Names: anthropic, openai");
   console.log("");
 }
 
@@ -82,11 +84,9 @@ function getDefaultModel(provider: string): string {
       return "claude-sonnet-4-20250514";
     case "openai":
       return "gpt-4o";
-    case "gemini":
-      return "gemini-pro";
-    case "local":
-      return "local";
     default:
-      return "default";
+      // createProvider falls back to anthropic for unknown names, so the
+      // fallback model has to be an anthropic one or the switch fails.
+      return "claude-sonnet-4-20250514";
   }
 }

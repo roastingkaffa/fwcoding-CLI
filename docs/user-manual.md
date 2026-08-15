@@ -184,7 +184,7 @@ version: "1.0"
 
 # LLM Provider
 provider:
-  name: anthropic           # anthropic | openai | gemini | local
+  name: anthropic           # Implemented: anthropic | openai (gemini / local are not implemented — falls back to anthropic)
   model: claude-sonnet-4-20250514
   api_key_env: ANTHROPIC_API_KEY  # Environment variable name (not the key itself)
   max_tokens: 4096          # Max response tokens

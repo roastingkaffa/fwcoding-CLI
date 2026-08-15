@@ -63,6 +63,9 @@ function buildCompleter() {
     "/security",
     "/policy",
     "/sessions",
+    "/memory",
+    "/provider",
+    "/farm",
     "/exit",
     "/quit",
   ];

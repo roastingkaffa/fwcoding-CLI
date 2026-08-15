@@ -16,6 +16,7 @@ import { searchGlobTool } from "./search-glob.js";
 import { bashTool } from "./bash.js";
 import { wrapAllFirmwareTools } from "./firmware-tools.js";
 import { gdbTool } from "./gdb-tool.js";
+import { memoryAnalysisTool } from "./memory-analysis.js";
 
 /** All built-in agentic tools */
 const BUILTIN_TOOLS: AgenticTool[] = [
@@ -25,6 +26,7 @@ const BUILTIN_TOOLS: AgenticTool[] = [
   searchGrepTool,
   searchGlobTool,
   bashTool,
+  memoryAnalysisTool,
 ];
 
 export class ToolRegistry {
@@ -128,7 +130,14 @@ export class ToolRegistry {
     return this.tools.size;
   }
 
-  /** Create a registry with all built-in tools + firmware tools + optional gdb tool */
+  /**
+   * Create a registry with all built-in tools + firmware tools + the gdb tool.
+   *
+   * `enableGdb` is opt-OUT: every caller passed no options, so gating gdb behind
+   * an opt-in meant `gdb_debug` was never registered anywhere and the model could
+   * not call it. Registering it costs nothing when unused — the tool reports a
+   * plain error if gdb is missing — while `{ enableGdb: false }` still removes it.
+   */
   static createDefault(
     firmwareTools?: Map<string, ToolDef>,
     opts?: { enableGdb?: boolean }
@@ -138,7 +147,7 @@ export class ToolRegistry {
     if (firmwareTools) {
       registry.registerAll(wrapAllFirmwareTools(firmwareTools));
     }
-    if (opts?.enableGdb) {
+    if (opts?.enableGdb !== false) {
       registry.register(gdbTool);
     }
     return registry;
